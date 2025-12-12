@@ -1,0 +1,44 @@
+services:
+  api:
+    build: ./backend
+    container_name: api
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app
+          ignore:
+            - env/
+        - action: rebuild
+          path: requirements.txt
+    ports:
+      - "8000:8000"
+    environment:
+      OPENAI_API_KEY: "[Enter your Key]"
+    volumes:
+      - ./backend:/app
+    networks:
+      - app_network
+
+  frontend:
+    build: ./eduiafront
+    container_name: frontend
+    develop:
+      watch:
+        - action: sync
+          path: ./eduiafront
+          target: /src
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: package.json
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
