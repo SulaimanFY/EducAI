@@ -9,11 +9,11 @@ This project was developed by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTAR
 
 ## Screenshots
 
-AI-powered chat interface allowing teachers to generate math exercises in French, aligned with the Cycle 2 curriculum.
 <img width="940" height="496" alt="image" src="https://github.com/user-attachments/assets/d48abb4f-974c-4c31-8f8b-438e248b8701" />
+AI-powered chat interface allowing teachers to generate math exercises in French, aligned with the Cycle 2 curriculum.
 
-Example of an AI-generated math exercise with structured questions and automatically provided correct answers.
 <img width="940" height="464" alt="image4" src="https://github.com/user-attachments/assets/c90e3cbb-aa6c-4c6f-b6b2-47e5b0feaae8" />
+Example of an AI-generated math exercise with structured questions and automatically provided correct answers.
 
 Teacher dashboard giving access to exam correction, performance analytics, stored results, and curriculum upload.
 <img width="940" height="508" alt="image6" src="https://github.com/user-attachments/assets/02ae1342-5874-4d85-9c9e-7b15af338cdd" />
