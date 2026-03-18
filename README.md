@@ -1,7 +1,15 @@
 # EducAI — AI-Powered Pedagogical Assistance Platform
 
 ## Overview
-**EducAI** is a web application that uses artificial intelligence to help teachers generate and automatically correct mathematics exercises. It combines a modern backend–frontend architecture, intelligent content generation, PDF exam correction, dashboards, analytics, and personalized pedagogical recommendations.
+**EducAI** is a web application that uses artificial intelligence to help teachers generate and automatically correct mathematics exercises.
+
+It combines:
+
+- **NLP & LLMs** — exercise generation and rewriting from natural-language prompts and curriculum documents, powered by OpenAI GPT.
+- **Automated exam correction** — parsing structured PDF answer sheets, extracting student responses and computing scores (global score, per-question results, success rate).
+- **Educational analytics** — dashboards and statistics on students, exercises and performance.
+- **Personalized pedagogical recommendations** — AI-generated feedback and suggestions tailored to each student's strengths and weaknesses.
+- A modern **API + frontend** architecture — FastAPI backend, React + Chakra UI frontend, JWT authentication, and Docker / Docker Compose for deployment.
 
 This project was developed by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTARA** as a final-year **Master of Engineering** project (2025). Full technical documentation and a user guide are available in French.
 
