@@ -1,21 +1,15 @@
 # llm_agent.py
-from langchain_openai import ChatOpenAI
-from langchain.schema import SystemMessage, HumanMessage
-from langchain.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain.document_loaders import PyPDFLoader
-from langchain_openai import OpenAIEmbeddings
-from langchain.schema import HumanMessage, SystemMessage
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import FAISS
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
 from langchain_community.tools import DuckDuckGoSearchRun
-from langgraph.graph import END, START, StateGraph
+from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 from sqlalchemy import text, inspect
-from langchain.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser  # Make sure this is installed
-from langchain.output_parsers import PydanticOutputParser
 from models import Recommendation, Programme
 import json
 import re

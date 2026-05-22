@@ -96,7 +96,7 @@ const CorrectExam = () => {
 
     try {
       setIsSubmitting(true);
-      const response = await api.post("/correct-exam", formData);
+      const response = await api.post("/correct-exam/", formData);
       const data = response.data;
       
       // Store all exam data for review
@@ -140,7 +140,7 @@ const CorrectExam = () => {
       console.error("Error during API call:", error);
       toast({
         title: "Error",
-        description: "An error occurred while processing the request. Please try again.",
+        description: error.response?.data?.detail || "An error occurred while processing the request. Please try again.",
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -183,11 +183,12 @@ const CorrectExam = () => {
       
       const savePromises = async () => {
         try {
-          const response = await api.post("/save-result/", {
-            score: count,
-            exo_id: exo_id,
-            eleve_id: eleve_id
-          }, {
+          const formData = new URLSearchParams();
+          formData.append("score", count);
+          formData.append("exo_id", exo_id);
+          formData.append("eleve_id", eleve_id);
+
+          const response = await api.post("/save-result/", formData, {
             headers: {"Content-Type": "application/x-www-form-urlencoded"},
           });
           

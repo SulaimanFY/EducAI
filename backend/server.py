@@ -313,14 +313,21 @@ async def submit_copy(
     text = extract_text_from_pdf_from_bytes(pdf_bytes)
     structured_data = invoke_analyze_student_copy_agent(text)
     print(structured_data, "structured_data")
+    try:
+        id_eleve = int(structured_data.get("id_eleve"))
+        id_exercice = int(structured_data.get("id_exercice"))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="Le PDF ne contient pas un id_eleve/id_exercice valide.",
+        )
+
+    structured_data["id_eleve"] = id_eleve
+    structured_data["id_exercice"] = id_exercice
     has_inserted = insert_submission_data(structured_data, db)
     print(has_inserted, "has_inserted")
     if has_inserted:
         print("Submission processed successfully")
-        # Get student and exercise IDs from structured data
-        id_eleve = structured_data.get("id_eleve")
-        id_exercice = structured_data.get("id_exercice")
-
         # Get correct answers count and submission details
         correct_count = get_correct_answers_count(
             db, id_eleve=id_eleve, id_exercice=id_exercice

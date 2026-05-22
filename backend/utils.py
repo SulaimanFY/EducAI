@@ -30,10 +30,13 @@ def insert_submission_data(data, db=None):
         
         if db:
             # Use SQLAlchemy session
+            eleve_id = int(data["id_eleve"])
+            exercice_id = int(data["id_exercice"])
+
             # Insert or get student
-            student = db.query(Eleve).filter(Eleve.id == data["id_eleve"]).first()
+            student = db.query(Eleve).filter(Eleve.id == eleve_id).first()
             if not student:
-                student = Eleve(id=data["id_eleve"], nom=data["nom_eleve"])
+                student = Eleve(id=eleve_id, nom=data["nom_eleve"])
                 db.add(student)
                 db.flush()
             
@@ -55,8 +58,8 @@ def insert_submission_data(data, db=None):
                 
                 # Check if submission already exists
                 existing_submission = db.query(Soumission).filter(
-                    Soumission.eleve_id == data["id_eleve"],
-                    Soumission.exercice_id == data["id_exercice"],
+                    Soumission.eleve_id == eleve_id,
+                    Soumission.exercice_id == exercice_id,
                     Soumission.question == reponse["question"]
                 ).first()
                 
@@ -67,8 +70,8 @@ def insert_submission_data(data, db=None):
                 else:
                     # Create new submission
                     new_submission = Soumission(
-                        eleve_id=data["id_eleve"],
-                        exercice_id=data["id_exercice"],
+                        eleve_id=eleve_id,
+                        exercice_id=exercice_id,
                         date_soumission=date_soumission,
                         question=reponse["question"],
                         answer=reponse["reponse_choisie"]

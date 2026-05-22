@@ -32,18 +32,18 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
 
   const formatBotResponse = (text) => {
     if (!text) return "";
-    
+
     return text.split(/(\*\*[^*]+\*\*|###[^#\n]+)/).map((part, index) => {
       // Handle exercise titles (###)
       if (part.startsWith("###")) {
         const exerciseText = part.trim();
         return <Heading size="md" color="blue.700" mt={5} mb={3} key={index}>{exerciseText}</Heading>;
       }
-      
+
       // Handle bold text (**)
       if (part.startsWith("**") && part.endsWith("**")) {
         const content = part.slice(2, -2);
-        
+
         if (content.includes("Introduction :")) {
           return <Box as="p" fontWeight="bold" mt={3} mb={3} key={index}>{content}</Box>;
         } else if (content.includes("Question")) {
@@ -74,21 +74,21 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
     // Reset any previous errors
     setError(null);
     setIsLoading(true);
-    
+
     try {
       // Ajout du message utilisateur localement
       const userMessage = { sender: "user", text: userText };
-      
+
       // Add user message immediately for better UX
       setMessages((prev) => [...prev, userMessage]);
 
       // Appelez l'endpoint /chat/ pour obtenir la réponse
       const response = await api.post("/chat/", { message: userText });
       const botResponse = response.data.response;
-      const botMessage = { 
-        sender: "bot", 
+      const botMessage = {
+        sender: "bot",
         text: botResponse,
-        formattedText: formatBotResponse(botResponse) 
+        formattedText: formatBotResponse(botResponse)
       };
 
       // Mise à jour de l'état des messages
@@ -97,16 +97,16 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
       console.error("Erreur lors de l'envoi du message :", error);
       // Add error message to show to the user
       setError(
-        error.response?.data?.detail || 
+        error.response?.data?.detail ||
         "Une erreur s'est produite lors de l'envoi du message. Veuillez réessayer."
       );
       // Add error message as bot response
       setMessages((prev) => [
-        ...prev, 
-        { 
-          sender: "bot", 
-          text: "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.", 
-          isError: true 
+        ...prev,
+        {
+          sender: "bot",
+          text: "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.",
+          isError: true
         }
       ]);
     } finally {
@@ -141,23 +141,23 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
       />
       <AppLayout>
         <Heading>
-          Je suis un assistant IA qui génère des exercices de Math basé sur le
-          programme du cycle 2 en France.
+          Je suis un assistant IA qui génère des exercices de Maths en fonction du programme scolaire sélectionné.
+
         </Heading>
-        
+
         {error && (
-          <Box 
-            bg="red.100" 
-            color="red.800" 
-            p={3} 
-            borderRadius="md" 
+          <Box
+            bg="red.100"
+            color="red.800"
+            p={3}
+            borderRadius="md"
             mb={4}
             maxW="100%"
           >
             {error}
           </Box>
         )}
-        
+
         <ChatMessages messages={messages} onCopy={copyToClipboard} />
         <ChatBox
           showLoginForm={showLoginForm}

@@ -2,5 +2,9 @@ env__pycache__/
 __pycache__/
 env
 
+.env
+
+backend/submissions/*.pdf
+
 eduAI.db
 eduIA.db
