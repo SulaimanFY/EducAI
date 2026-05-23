@@ -1,5 +1,5 @@
 // src/pages/Home.jsx
-import { Box, Heading } from "@chakra-ui/react";
+import { Box, Heading, Text, VStack } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import LoginForm from "../components/Auth/LoginForm";
@@ -33,33 +33,89 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
   const formatBotResponse = (text) => {
     if (!text) return "";
 
-    return text.split(/(\*\*[^*]+\*\*|###[^#\n]+)/).map((part, index) => {
-      // Handle exercise titles (###)
-      if (part.startsWith("###")) {
-        const exerciseText = part.trim();
-        return <Heading size="md" color="blue.700" mt={5} mb={3} key={index}>{exerciseText}</Heading>;
-      }
+    const cleanMarkdown = (value) => value.replace(/\*\*/g, "").trim();
+    const lines = text
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
 
-      // Handle bold text (**)
-      if (part.startsWith("**") && part.endsWith("**")) {
-        const content = part.slice(2, -2);
+    return (
+      <VStack align="stretch" spacing={3}>
+        {lines.map((line, index) => {
+          const content = cleanMarkdown(line.replace(/^###\s*/, ""));
 
-        if (content.includes("Introduction :")) {
-          return <Box as="p" fontWeight="bold" mt={3} mb={3} key={index}>{content}</Box>;
-        } else if (content.includes("Question")) {
-          return <Box as="p" fontWeight="bold" mt={4} mb={2} key={index}>{content}</Box>;
-        } else if (content.includes("Réponse correcte")) {
-          return <Box as="p" color="green.600" fontWeight="bold" mt={1} mb={3} key={index}>{content}</Box>;
-        } else if (content.includes("Titre :")) {
-          return <Heading size="md" mt={4} mb={2} key={index}>{content}</Heading>;
-        } else {
-          return <Box as="span" fontWeight="bold" key={index}>{content}</Box>;
-        }
-      }
-      return <Box as="span" key={index}>{part}</Box>;
-    });
+          if (line.startsWith("###") || content.startsWith("Titre :")) {
+            return (
+              <Heading key={index} size="md" color="blue.700" mt={index === 0 ? 0 : 3}>
+                {content}
+              </Heading>
+            );
+          }
+
+          if (content.startsWith("Introduction :")) {
+            return (
+              <Box key={index} p={3} bg="blue.50" borderRadius="md">
+                <Text fontWeight="semibold" color="blue.800">
+                  {content}
+                </Text>
+              </Box>
+            );
+          }
+
+          if (/^Question\s+\d+\s*:/.test(content)) {
+            return (
+              <Box
+                key={index}
+                mt={2}
+                p={3}
+                bg="white"
+                borderLeft="4px solid"
+                borderColor="blue.400"
+                borderRadius="md"
+                boxShadow="sm"
+              >
+                <Text fontWeight="bold" color="gray.800">
+                  {content}
+                </Text>
+              </Box>
+            );
+          }
+
+          if (/^[A-D]\)/.test(content)) {
+            return (
+              <Text key={index} pl={5} fontSize="md" color="gray.700">
+                {content}
+              </Text>
+            );
+          }
+
+          if (content.startsWith("Réponse correcte")) {
+            return (
+              <Text
+                key={index}
+                pl={5}
+                color="green.700"
+                fontWeight="bold"
+                bg="green.50"
+                borderRadius="md"
+                py={1}
+                px={2}
+              >
+                {content}
+              </Text>
+            );
+          }
+
+          return (
+            <Text key={index} whiteSpace="pre-wrap" color="gray.700">
+              {content}
+            </Text>
+          );
+        })}
+      </VStack>
+    );
   };
-
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text)
       .then(() => {

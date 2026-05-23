@@ -57,6 +57,8 @@ from utils import (
     get_pending_submissions,
     get_exams_for_professor,
     add_missing_columns,
+    resolve_exercice_id,
+    reconcile_submissions_exercise,
 )
 
 app = FastAPI()
@@ -322,6 +324,10 @@ async def submit_copy(
             detail="Le PDF ne contient pas un id_eleve/id_exercice valide.",
         )
 
+    original_exercice_id = id_exercice
+    id_exercice = resolve_exercice_id(db, id_exercice, current_user.id)
+    reconcile_submissions_exercise(db, id_eleve, id_exercice)
+
     structured_data["id_eleve"] = id_eleve
     structured_data["id_exercice"] = id_exercice
     has_inserted = insert_submission_data(structured_data, db)
@@ -338,13 +344,19 @@ async def submit_copy(
         correct_answers = get_correct_answers(db, id_exercice)
         print(correct_answers, "correct_answers")
 
-        return {
+        response = {
             "message": "Submission processed successfully",
             "data": structured_data,
             "correct_count": correct_count,
             "submission_data": submission_data,
             "correct_answers": correct_answers,
         }
+        if original_exercice_id != id_exercice:
+            response["warning"] = (
+                f"L'exercice {original_exercice_id} du PDF n'existe plus. "
+                f"La correction a été associée à l'exercice {id_exercice}."
+            )
+        return response
     else:
         print("Submission failed")
         return {"message": "Submission failed"}
@@ -432,7 +444,9 @@ async def save_submission_result(
     Save the final score for a student's submission.
     """
     try:
-        result_id = save_student_result(db, exo_id, eleve_id, score)
+        result_id = save_student_result(
+            db, exo_id, eleve_id, score, professeur_id=current_user.id
+        )
         return {"message": "Result saved successfully", "result_id": result_id}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

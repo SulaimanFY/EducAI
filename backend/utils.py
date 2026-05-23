@@ -7,6 +7,43 @@ import os
 from datetime import datetime
 from sqlalchemy import text
 from sqlalchemy import inspect
+
+
+def resolve_exercice_id(db, exo_id, professeur_id=None):
+    """Return a valid exercise id, falling back to the latest exercise when PDF id is stale."""
+    exercice = db.query(Exercice).filter(Exercice.id == exo_id).first()
+    if exercice:
+        return exo_id
+
+    query = db.query(Exercice)
+    if professeur_id:
+        query = query.filter(Exercice.professeur_id == professeur_id)
+    fallback = query.order_by(Exercice.id.desc()).first()
+    if fallback:
+        return fallback.id
+
+    raise ValueError(
+        "Aucun exercice disponible. Générez d'abord un QCM via le chat avant de corriger une copie."
+    )
+
+
+def reconcile_submissions_exercise(db, eleve_id, exercice_id):
+    """Reassign orphan submissions to a valid exercise id after DB resets."""
+    valid_exercice_ids = {row[0] for row in db.query(Exercice.id).all()}
+    if not valid_exercice_ids:
+        return
+
+    submissions = db.query(Soumission).filter(Soumission.eleve_id == eleve_id).all()
+    updated = False
+    for submission in submissions:
+        if submission.exercice_id not in valid_exercice_ids:
+            submission.exercice_id = exercice_id
+            updated = True
+
+    if updated:
+        db.commit()
+
+
 def insert_submission_data(data, db=None):
     """
     Insert student submission data into the database using either SQLAlchemy or direct SQLite connection.
@@ -302,7 +339,7 @@ def insert_qcm_data(qcm_data, professeur_id, db=None):
         print("Error: No database session provided")
         return None
 
-def save_student_result(db, exo_id, eleve_id, score):
+def save_student_result(db, exo_id, eleve_id, score, professeur_id=None):
     """
     Save or update the result for a student's submission.
     
@@ -311,6 +348,7 @@ def save_student_result(db, exo_id, eleve_id, score):
         exo_id: Exercise ID
         eleve_id: Student ID
         score: Score to save
+        professeur_id: Optional professor id used to resolve stale exercise ids
         
     Returns:
         ID of the created or updated result
@@ -318,14 +356,16 @@ def save_student_result(db, exo_id, eleve_id, score):
     Raises:
         ValueError: If exercise or student doesn't exist
     """
-    # Check if submission exists
-    exercice = db.query(Exercice).filter(Exercice.id == exo_id).first()
     eleve = db.query(Eleve).filter(Eleve.id == eleve_id).first()
-    
-    if not exercice:
-        raise ValueError("Exercice not found")
     if not eleve:
         raise ValueError("Eleve not found")
+
+    exo_id = resolve_exercice_id(db, exo_id, professeur_id)
+    reconcile_submissions_exercise(db, eleve_id, exo_id)
+
+    exercice = db.query(Exercice).filter(Exercice.id == exo_id).first()
+    if not exercice:
+        raise ValueError("Exercice not found")
     
     # Check if a result already exists for this student-exercise pair
     existing_result = db.query(Resultat).filter(

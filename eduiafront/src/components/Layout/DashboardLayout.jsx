@@ -101,8 +101,18 @@ const CorrectExam = () => {
       
       // Store all exam data for review
       setExamData(data);
-      setExoId(data.data.id_exercice);
-      setEleveId(data.data.id_eleve);
+      setExoId(Number(data.data.id_exercice));
+      setEleveId(Number(data.data.id_eleve));
+
+      if (data.warning) {
+        toast({
+          title: "Attention",
+          description: data.warning,
+          status: "warning",
+          duration: 7000,
+          isClosable: true,
+        });
+      }
       
       // Format the submission data into results format
       if (data.submission_data && data.submission_data.length > 0) {
@@ -234,7 +244,9 @@ const CorrectExam = () => {
       console.error("Error validating results:", error);
       toast({
         title: "Error",
-        description: "An error occurred while validating the results.",
+        description:
+          error.response?.data?.detail ||
+          "An error occurred while validating the results.",
         status: "error",
         duration: 5000,
         isClosable: true,
