@@ -407,20 +407,32 @@ def get_metrics(db, professeur_id=None):
     current_month_start = datetime(now.year, now.month, 1)
     previous_month_start = (current_month_start - timedelta(days=1)).replace(day=1)
     
-    # Base query to get all results if no professor_id specified
+    # Base query: convert stored raw score (e.g. 2/4) into a percentage.
     if professeur_id:
-        # For a specific professor, only count exams they created
         base_query = text("""
-            SELECT r.id, r.score, ex.id, ex.professeur_id
+            SELECT
+                r.id,
+                (r.score * 100.0) / NULLIF((
+                    SELECT COUNT(*)
+                    FROM soumissions s
+                    WHERE s.exercice_id = r.exercice_id
+                      AND s.eleve_id = r.eleve_id
+                ), 0) AS score_percent
             FROM resultats r
             JOIN exercices ex ON r.exercice_id = ex.id
             WHERE ex.professeur_id = :prof_id
         """)
         params = {"prof_id": professeur_id}
     else:
-        # For all results
         base_query = text("""
-            SELECT r.id, r.score
+            SELECT
+                r.id,
+                (r.score * 100.0) / NULLIF((
+                    SELECT COUNT(*)
+                    FROM soumissions s
+                    WHERE s.exercice_id = r.exercice_id
+                      AND s.eleve_id = r.eleve_id
+                ), 0) AS score_percent
             FROM resultats r
         """)
         params = {}
@@ -429,15 +441,23 @@ def get_metrics(db, professeur_id=None):
     results = db.execute(base_query, params).fetchall()
     total_exams = len(results)
     
-    if total_exams > 0:
-        avg_score = sum(r.score for r in results) / total_exams
+    valid_scores = [r.score_percent for r in results if r.score_percent is not None]
+    if valid_scores:
+        avg_score = sum(valid_scores) / len(valid_scores)
     else:
         avg_score = 0
     
     # Get previous month data
     if professeur_id:
         prev_month_query = text("""
-            SELECT AVG(r.score) as avg_score, COUNT(r.id) as count
+            SELECT
+                AVG((r.score * 100.0) / NULLIF((
+                    SELECT COUNT(*)
+                    FROM soumissions s2
+                    WHERE s2.exercice_id = r.exercice_id
+                      AND s2.eleve_id = r.eleve_id
+                ), 0)) AS avg_score,
+                COUNT(DISTINCT r.id) AS count
             FROM resultats r
             JOIN exercices ex ON r.exercice_id = ex.id
             JOIN soumissions s ON r.exercice_id = s.exercice_id
@@ -447,7 +467,14 @@ def get_metrics(db, professeur_id=None):
         prev_params = {"prof_id": professeur_id, "cutoff_date": current_month_start}
     else:
         prev_month_query = text("""
-            SELECT AVG(r.score) as avg_score, COUNT(r.id) as count
+            SELECT
+                AVG((r.score * 100.0) / NULLIF((
+                    SELECT COUNT(*)
+                    FROM soumissions s2
+                    WHERE s2.exercice_id = r.exercice_id
+                      AND s2.eleve_id = r.eleve_id
+                ), 0)) AS avg_score,
+                COUNT(DISTINCT r.id) AS count
             FROM resultats r
             JOIN soumissions s ON r.exercice_id = s.exercice_id
             WHERE s.date_soumission < :cutoff_date
@@ -581,13 +608,22 @@ def get_exercise_performance_data(db, eleve_id, exercice_id):
     if not data:
         return {}, ""
             
-    # Format the submission data for specific exercise
-    performance_details = []
+    total_questions = len(data)
+    final_score = data[0].score if data[0].score is not None else 0
+    score_percent = round((final_score / total_questions) * 100, 1) if total_questions else 0
     exercice_titre = data[0].titre
-    for submission in data:
-        performance_details.append(f"- Submission on {submission.date_soumission}: Question: {submission.question}, Answer: {submission.answer}, Score: {submission.score or 'Not evaluated'}")
-    
-    performance_str = f"Exercise: {exercice_titre}\n" + "\n".join(performance_details)
+    answers = [
+        f"{submission.question}: réponse élève {submission.answer}"
+        for submission in data
+    ]
+
+    performance_str = (
+        f"Exercice: {exercice_titre}\n"
+        f"Score final: {final_score}/{total_questions} bonnes réponses ({score_percent}%).\n"
+        f"Conclusion factuelle: l'élève n'a pas tout réussi si le score est inférieur à {total_questions}/{total_questions}.\n"
+        "Réponses de l'élève:\n"
+        + "\n".join(answers)
+    )
     
     # Get student info
     student_query = text("SELECT nom, email FROM eleves WHERE id = :id")
@@ -609,8 +645,8 @@ def get_student_global_performance(db, eleve_id, professeur_id):
         e.email,
         ex.id as exercice_id, 
         ex.titre as exercice_titre,
-        COUNT(DISTINCT s.id) as submission_count,
-        AVG(r.score) as avg_score
+        COUNT(DISTINCT s.id) as total_questions,
+        MAX(r.score) as correct_count
     FROM 
         eleves e
     JOIN 
@@ -644,9 +680,17 @@ def get_student_global_performance(db, eleve_id, professeur_id):
     performance_details = []
     for row in student_data:
         if row.exercice_titre:
-            score_text = f"Average score: {row.avg_score:.1f}" if row.avg_score else "No scores recorded"
+            correct_count = row.correct_count or 0
+            total_questions = row.total_questions or 0
+            score_percent = (
+                round((correct_count / total_questions) * 100, 1)
+                if total_questions
+                else 0
+            )
             performance_details.append(
-                f"Exercise: {row.exercice_titre}\n- {row.submission_count} submissions, {score_text}"
+                f"Exercice: {row.exercice_titre}\n"
+                f"Score final: {correct_count}/{total_questions} bonnes réponses ({score_percent}%).\n"
+                f"Conclusion factuelle: l'élève n'a pas tout réussi si le score est inférieur à {total_questions}/{total_questions}."
             )
     
     performance_str = "\n".join(performance_details) if performance_details else "No exercise submissions found."

@@ -25,7 +25,14 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from models import Programme
+from models import Base, Exercice, Professeur, Programme, Soumission
+from database import SessionLocal, engine
+from llm_agent import (
+    invoke_generate_qcm_agent,
+    format_qcm_data,
+    invoke_analyze_student_copy_agent,
+    invoke_llm_recommendation_agent,
+)
 from utils import (
     insert_qcm_data,
     extract_text_from_pdf_from_bytes,
@@ -40,23 +47,11 @@ from utils import (
     get_exercise_performance_data,
     get_student_global_performance,
     save_pdf_to_submission_folder,
-)
-from database import SessionLocal, engine
-from llm_agent import (
-    invoke_llm,
-    invoke_generate_qcm_agent,
-    format_qcm_data,
-    invoke_analyze_student_copy_agent,
-    invoke_llm_recommendation_agent,
-)
-from models import Base, Exercice, Professeur, Resultat, Soumission, Eleve
-from utils import (
     verify_exam_belongs_to_professor,
     verify_student_access,
     get_exam_results_for_professor,
     get_pending_submissions,
     get_exams_for_professor,
-    add_missing_columns,
     resolve_exercice_id,
     reconcile_submissions_exercise,
 )
@@ -80,9 +75,9 @@ Base.metadata.create_all(bind=engine)
 # ----------------------------
 # CONFIGURATION JWT
 # ----------------------------
-SECRET_KEY = "your_secret_key"  # Replace with a secure key
+SECRET_KEY = os.environ.get("EDUCAI_JWT_SECRET", "change-me-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("EDUCAI_TOKEN_EXPIRE_MINUTES", "60"))
 
 # ----------------------------
 # GESTION DES MOTS DE PASSE
@@ -311,10 +306,18 @@ async def submit_copy(
     current_user: Professeur = Depends(get_current_professeur),
     db: Session = Depends(get_db),
 ):
+    """Analyse une copie élève (PDF) et renvoie une correction préliminaire.
+
+    Réponse :
+    - ``correct_count`` : nombre de bonnes réponses détectées automatiquement.
+    - ``total_questions`` : nombre de questions de la soumission.
+    - ``percentage`` : pourcentage de réussite estimé (0–100).
+    - ``submission_data`` : réponses de l'élève question par question.
+    - ``correct_answers`` : bonne réponse attendue pour chaque question.
+    """
     pdf_bytes = await pdf.read()
     text = extract_text_from_pdf_from_bytes(pdf_bytes)
     structured_data = invoke_analyze_student_copy_agent(text)
-    print(structured_data, "structured_data")
     try:
         id_eleve = int(structured_data.get("id_eleve"))
         id_exercice = int(structured_data.get("id_exercice"))
@@ -325,41 +328,47 @@ async def submit_copy(
         )
 
     original_exercice_id = id_exercice
-    id_exercice = resolve_exercice_id(db, id_exercice, current_user.id)
+    try:
+        id_exercice = resolve_exercice_id(db, id_exercice, current_user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     reconcile_submissions_exercise(db, id_eleve, id_exercice)
 
     structured_data["id_eleve"] = id_eleve
     structured_data["id_exercice"] = id_exercice
     has_inserted = insert_submission_data(structured_data, db)
-    print(has_inserted, "has_inserted")
-    if has_inserted:
-        print("Submission processed successfully")
-        # Get correct answers count and submission details
-        correct_count = get_correct_answers_count(
-            db, id_eleve=id_eleve, id_exercice=id_exercice
+    if not has_inserted:
+        raise HTTPException(
+            status_code=500,
+            detail="L'insertion de la soumission a échoué. Vérifie le format du PDF.",
         )
-        print(correct_count, "correct_count")
-        submission_data = get_submission_data(db, id_eleve, id_exercice)
-        print(submission_data, "submission_data")
-        correct_answers = get_correct_answers(db, id_exercice)
-        print(correct_answers, "correct_answers")
 
-        response = {
-            "message": "Submission processed successfully",
-            "data": structured_data,
-            "correct_count": correct_count,
-            "submission_data": submission_data,
-            "correct_answers": correct_answers,
-        }
-        if original_exercice_id != id_exercice:
-            response["warning"] = (
-                f"L'exercice {original_exercice_id} du PDF n'existe plus. "
-                f"La correction a été associée à l'exercice {id_exercice}."
-            )
-        return response
-    else:
-        print("Submission failed")
-        return {"message": "Submission failed"}
+    correct_count = get_correct_answers_count(
+        db, id_eleve=id_eleve, id_exercice=id_exercice
+    )
+    submission_data = get_submission_data(db, id_eleve, id_exercice)
+    correct_answers = get_correct_answers(db, id_exercice)
+
+    total_questions = len(submission_data)
+    percentage = (
+        round((correct_count / total_questions) * 100, 1) if total_questions else 0
+    )
+
+    response = {
+        "message": "Submission processed successfully",
+        "data": structured_data,
+        "correct_count": correct_count,
+        "total_questions": total_questions,
+        "percentage": percentage,
+        "submission_data": submission_data,
+        "correct_answers": correct_answers,
+    }
+    if original_exercice_id != id_exercice:
+        response["warning"] = (
+            f"L'exercice {original_exercice_id} du PDF n'existe plus. "
+            f"La correction a été associée à l'exercice {id_exercice}."
+        )
+    return response
 
 
 # -------------------- Chat Endpoint --------------------
@@ -369,15 +378,18 @@ async def chatbot(
     current_user: Professeur = Depends(get_current_professeur),
     db: Session = Depends(get_db),
 ):
-    user_message = chat.message.lower()
+    user_message = chat.message.strip()
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Le message ne peut pas être vide.")
 
-    print(user_message)
-    response = invoke_generate_qcm_agent(user_message, current_user.id, db)
-    print(response)
-    print(current_user.id)
-    new_exercise = insert_qcm_data(response, current_user.id, db)
-    print(new_exercise)
-    return {"response": format_qcm_data(response, new_exercise)}
+    qcm_payload = invoke_generate_qcm_agent(user_message, current_user.id, db)
+    new_exercise = insert_qcm_data(qcm_payload, current_user.id, db)
+    if not new_exercise:
+        raise HTTPException(
+            status_code=500,
+            detail="La génération du QCM a échoué. Réessaie avec une consigne plus précise.",
+        )
+    return {"response": format_qcm_data(qcm_payload, new_exercise)}
 
 
 # ----------------------------
@@ -440,16 +452,40 @@ async def save_submission_result(
     current_user: Professeur = Depends(get_current_professeur),
     db: Session = Depends(get_db),
 ):
+    """Enregistre le résultat final corrigé par le professeur.
+
+    ``score`` est le **nombre de bonnes réponses** validées par le professeur
+    (entier compris entre 0 et le nombre total de questions).
     """
-    Save the final score for a student's submission.
-    """
+    if score < 0:
+        raise HTTPException(
+            status_code=400, detail="Le score ne peut pas être négatif."
+        )
     try:
         result_id = save_student_result(
             db, exo_id, eleve_id, score, professeur_id=current_user.id
         )
-        return {"message": "Result saved successfully", "result_id": result_id}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    total_questions = (
+        db.query(Soumission)
+        .filter(
+            Soumission.exercice_id == exo_id,
+            Soumission.eleve_id == eleve_id,
+        )
+        .count()
+    )
+    percentage = (
+        round((score / total_questions) * 100, 1) if total_questions else 0
+    )
+    return {
+        "message": "Result saved successfully",
+        "result_id": result_id,
+        "correct_count": score,
+        "total_questions": total_questions,
+        "percentage": percentage,
+    }
 
 
 @app.get("/metrics")

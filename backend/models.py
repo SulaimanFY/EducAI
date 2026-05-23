@@ -83,13 +83,25 @@ class Soumission(Base):
    
 
 class Resultat(Base):
+    """Résultat final de correction d'un exercice par un élève.
+
+    Le champ ``score`` stocke un compteur brut : le **nombre de bonnes
+    réponses** validées par le professeur pour cet élève sur cet exercice.
+
+    Pour obtenir un pourcentage il faut le rapporter au nombre de questions
+    de l'exercice, c'est-à-dire au nombre de lignes correspondantes dans
+    ``soumissions`` (ou dans ``qcms``). Ex : ``score = 2`` et 4 questions
+    donnent 50 %.
+    """
+
     __tablename__ = "resultats"
     id = Column(Integer, primary_key=True, index=True)
+    # Nombre brut de bonnes réponses (PAS un pourcentage). Voir docstring.
     score = Column(Integer)
-    
+
     eleve_id = Column(Integer, ForeignKey("eleves.id"))
     exercice_id = Column(Integer, ForeignKey("exercices.id"))
-    
+
     eleve = relationship("Eleve", back_populates="resultats")
     exercice = relationship("Exercice", back_populates="resultats")
    

@@ -116,8 +116,8 @@ def invoke_generate_qcm_agent(prompt, professeur_id, db):
         # Utiliser le curriculum spécifique du professeur
         programme_context = professor_curriculum
     
-    # Enrichir le prompt avec les informations du curriculum si nécessaire
-    if "programme" or "curriculum" not in prompt:
+    prompt_lower = prompt.lower()
+    if "programme" not in prompt_lower and "curriculum" not in prompt_lower:
         programme_complet = f"{prompt}\n\nProgramme à couvrir: {programme_context}"
     else:
         programme_complet = prompt
@@ -296,6 +296,9 @@ Performance par exercice:
 
 Basé sur ces données, génère des recommandations personnalisées pour aider cet élève à progresser.
 Les recommandations doivent être spécifiques, actionables et adaptées au niveau de l'élève.
+Respecte strictement les scores fournis. Si le score est 2/4, ne dis jamais que l'élève a tout réussi.
+Les points forts doivent seulement mentionner les acquis réellement démontrés par les données.
+Les points à améliorer doivent refléter les erreurs ou le score partiel.
 
 {format_instructions}
 """,

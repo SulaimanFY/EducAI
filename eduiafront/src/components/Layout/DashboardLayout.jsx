@@ -65,13 +65,14 @@ const CorrectExam = () => {
     title: ""
   });
 
-  // Calculate percentage score when correctCount or examData changes
   useEffect(() => {
-    const totalQuestions = examData?.submission_data?.length || 0;
-    const percentage = totalQuestions > 0 
-      ? Math.round((correctCount / totalQuestions) * 100) 
-      : 0;
-    
+    const totalQuestions =
+      examData?.total_questions ?? examData?.submission_data?.length ?? 0;
+    const percentage =
+      totalQuestions > 0
+        ? Math.round((correctCount / totalQuestions) * 100)
+        : 0;
+
     setScorePercentage(percentage);
   }, [correctCount, examData]);
 
@@ -505,6 +506,25 @@ const Insights = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const renderRecommendationItems = (items = [], colorScheme = "blue") => (
+    <VStack align="stretch" spacing={2} mt={2}>
+      {items.map((item, index) => (
+        <Box
+          key={index}
+          bg="white"
+          borderLeft="4px solid"
+          borderColor={`${colorScheme}.400`}
+          borderRadius="md"
+          px={3}
+          py={2}
+          boxShadow="sm"
+        >
+          <Text fontSize="sm" color="gray.700">{item}</Text>
+        </Box>
+      ))}
+    </VStack>
+  );
+
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
@@ -646,38 +666,22 @@ const Insights = () => {
             
             <Box mb={3}>
               <Text fontWeight="bold" color="green.600">Points Forts:</Text>
-              <ul style={{ paddingLeft: "20px" }}>
-                {recommendation.strengths.map((strength, index) => (
-                  <li key={index}>{strength}</li>
-                ))}
-              </ul>
+              {renderRecommendationItems(recommendation.strengths, "green")}
             </Box>
             
             <Box mb={3}>
               <Text fontWeight="bold" color="orange.600">Points à Améliorer:</Text>
-              <ul style={{ paddingLeft: "20px" }}>
-                {recommendation.weaknesses.map((weakness, index) => (
-                  <li key={index}>{weakness}</li>
-                ))}
-              </ul>
+              {renderRecommendationItems(recommendation.weaknesses, "orange")}
             </Box>
             
             <Box mb={3}>
               <Text fontWeight="bold" color="blue.600">Recommandations:</Text>
-              <ul style={{ paddingLeft: "20px" }}>
-                {recommendation.recommendations.map((rec, index) => (
-                  <li key={index}>{rec}</li>
-                ))}
-              </ul>
+              {renderRecommendationItems(recommendation.recommendations, "blue")}
             </Box>
             
             <Box>
               <Text fontWeight="bold" color="purple.600">Ressources Suggérées:</Text>
-              <ul style={{ paddingLeft: "20px" }}>
-                {recommendation.resources.map((resource, index) => (
-                  <li key={index}>{resource}</li>
-                ))}
-              </ul>
+              {renderRecommendationItems(recommendation.resources, "purple")}
             </Box>
           </Box>
         )}
