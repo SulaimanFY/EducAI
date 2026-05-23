@@ -27,7 +27,8 @@ This project was developed by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTAR
 
 #### 2. Generated math exercise
 
-<img width="1906" height="933" alt="image" src="https://github.com/user-attachments/assets/8ed80603-93d5-4a47-8fab-e960f732fd12" />
+<img width="959" height="469" alt="image" src="https://github.com/user-attachments/assets/625348c1-9443-4078-ab7d-8374bce63eec" />
+
 
 *Example of an AI-generated math exercise with structured questions and automatically provided correct answers.*
 
@@ -35,7 +36,8 @@ This project was developed by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTAR
 
 #### 3. Teacher dashboard
 
-<img width="949" height="470" alt="image" src="https://github.com/user-attachments/assets/f86b3296-2524-4151-85bc-43f965b0daf7" />
+<img width="951" height="467" alt="image" src="https://github.com/user-attachments/assets/0b85be51-2837-4264-8712-0215d27fd21b" />
+
 
 
 *Teacher dashboard giving access to exam correction, performance analytics, stored results, and curriculum upload.*
@@ -54,7 +56,8 @@ This project was developed by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTAR
 
 #### 5. Corrected exam view
 
-<img width="941" height="465" alt="image" src="https://github.com/user-attachments/assets/f80d2e32-76cc-45bf-b566-6baa9751e464" />
+<img width="944" height="461" alt="image" src="https://github.com/user-attachments/assets/ee386433-6af4-41b0-8b97-990c38eaf793" />
+
 
 
 
@@ -64,7 +67,8 @@ This project was developed by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTAR
 
 #### 6. Student performance analytics
 
-<img width="944" height="465" alt="image" src="https://github.com/user-attachments/assets/037eb392-6628-445f-8e57-c953413e601e" />
+<img width="947" height="461" alt="image" src="https://github.com/user-attachments/assets/9e5ef4a3-b976-42b4-8e68-90f2e8fd71d5" />
+
 
 
 *Student performance analytics with personalized recommendations to highlight strengths and learning gaps.*
@@ -73,7 +77,8 @@ This project was developed by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTAR
 
 #### 7. List of corrected exams
 
-<img width="948" height="462" alt="image" src="https://github.com/user-attachments/assets/4e298b5e-606c-415c-8a3e-fa7bb26eafcc" />
+<img width="950" height="467" alt="image" src="https://github.com/user-attachments/assets/22559674-0623-4a40-926b-97c9f79034e0" />
+
 
 
 *List of corrected exams with saved results, enabling tracking of student performance over time.*
