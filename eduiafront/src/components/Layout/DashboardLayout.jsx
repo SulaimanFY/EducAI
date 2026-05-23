@@ -497,6 +497,8 @@ const Insights = () => {
     averageScore: 0,
     examsCorrected: 0,
     scoreChange: 0,
+    examsTrend: 0,
+    hasPreviousPeriod: false,
   });
   const [students, setStudents] = useState([]);
   const [exercises, setExercises] = useState([]);
@@ -583,14 +585,25 @@ const Insights = () => {
           <Stat p={3} shadow="sm" border="1px" borderColor="gray.200" borderRadius="md">
             <StatLabel>Score Moyen</StatLabel>
             <StatNumber>{metrics.averageScore}%</StatNumber>
-            <StatHelpText>↗︎ {metrics.scoreChange}% depuis le mois dernier</StatHelpText>
+            {metrics.hasPreviousPeriod ? (
+              <StatHelpText color={metrics.scoreChange >= 0 ? "green.500" : "red.500"}>
+                {metrics.scoreChange >= 0 ? "↗︎" : "↘︎"} {Math.abs(metrics.scoreChange)}% depuis le mois dernier
+              </StatHelpText>
+            ) : (
+              <StatHelpText color="gray.500">Pas encore de comparaison disponible</StatHelpText>
+            )}
             <Progress value={metrics.averageScore} colorScheme="green" mt={2} />
           </Stat>
           <Stat p={3} shadow="sm" border="1px" borderColor="gray.200" borderRadius="md">
             <StatLabel>Examens Corrigés</StatLabel>
             <StatNumber>{metrics.examsCorrected}</StatNumber>
-            <StatHelpText>↗︎ {metrics.examsTrend} depuis le mois dernier</StatHelpText>
-            <Progress value={metrics.examsCorrected} colorScheme="blue" mt={2} />
+            {metrics.hasPreviousPeriod ? (
+              <StatHelpText color={metrics.examsTrend >= 0 ? "green.500" : "red.500"}>
+                {metrics.examsTrend >= 0 ? "↗︎" : "↘︎"} {Math.abs(metrics.examsTrend)} depuis le mois dernier
+              </StatHelpText>
+            ) : (
+              <StatHelpText color="gray.500">Pas encore de comparaison disponible</StatHelpText>
+            )}
           </Stat>
         </SimpleGrid>
       </Box>
@@ -615,7 +628,7 @@ const Insights = () => {
               <option value="">-- Sélectionner un étudiant --</option>
               {students.map(student => (
                 <option key={student.id} value={student.id}>
-                  {student.nom} {student.prenom}
+                  {student.nom}{student.email ? ` (${student.email})` : ""}
                 </option>
               ))}
             </select>
@@ -693,7 +706,6 @@ const Insights = () => {
 const ExamResults = ({ setActiveTab, setSelectedExamId }) => {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchExams = async () => {
@@ -702,12 +714,7 @@ const ExamResults = ({ setActiveTab, setSelectedExamId }) => {
         setExams(response.data);
       } catch (error) {
         console.error("Error fetching exams:", error);
-        // Fallback test data
-        setExams([
-          { id: 1, name: "Mathematics", date: "2023-05-01" },
-          { id: 2, name: "Physics", date: "2023-05-02" },
-          { id: 3, name: "Chemistry", date: "2023-05-03" },
-        ]);
+        setExams([]);
       } finally {
         setLoading(false);
       }

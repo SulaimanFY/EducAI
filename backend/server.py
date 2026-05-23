@@ -1,12 +1,8 @@
 import os
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Optional
 
 import jwt
-import re
-import json
-import sqlite3  # used for test submission data
-
 from fastapi import (
     Depends,
     FastAPI,
@@ -14,9 +10,7 @@ from fastapi import (
     Form,
     HTTPException,
     Request,
-    Security,
     UploadFile,
-    status,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -56,11 +50,17 @@ from utils import (
     reconcile_submissions_exercise,
 )
 
-app = FastAPI()
+app = FastAPI(title="EducAI API", version="1.0.0")
 
+_default_origins = "http://localhost:3000,http://localhost:5173"
+_allowed_origins = [
+    origin.strip()
+    for origin in os.environ.get("EDUCAI_CORS_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,7 +70,6 @@ app.add_middleware(
 # INITIAL SETUP
 # ======================================================
 Base.metadata.create_all(bind=engine)
-# add_missing_columns(engine)
 
 # ----------------------------
 # CONFIGURATION JWT
@@ -567,73 +566,53 @@ async def update_curriculum(
     current_user: Professeur = Depends(get_current_professeur),
     db: Session = Depends(get_db),
 ):
-    """
-    Upload a curriculum PDF file and save its details in the database
-    """
-    try:
-        pdf_bytes = await pdf.read()
+    """Upload a curriculum PDF and persist the metadata for the professor."""
+    pdf_bytes = await pdf.read()
+    if not pdf_bytes:
+        raise HTTPException(status_code=400, detail="Le PDF est vide.")
 
-        # Create program folder if it doesn't exist
-        program_folder = "program"
-        os.makedirs(program_folder, exist_ok=True)
+    program_folder = "program"
+    os.makedirs(program_folder, exist_ok=True)
 
-        # Generate filename from original filename or use a default
-        filename = (
-            pdf.filename or f"curriculum_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    filename = (
+        pdf.filename or f"curriculum_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    )
+    file_path = save_pdf_to_submission_folder(
+        pdf_bytes, filename, submission_folder=program_folder
+    )
+    if not file_path:
+        raise HTTPException(status_code=500, detail="Failed to save curriculum file")
+
+    programme_name = nom if nom else "Default Curriculum"
+    existing_programme = (
+        db.query(Programme)
+        .filter(
+            Programme.professeur_id == current_user.id,
+            Programme.nom == programme_name,
         )
+        .first()
+    )
 
-        # Save the file using the existing utility function but specify program folder
-        file_path = save_pdf_to_submission_folder(
-            pdf_bytes, filename, submission_folder=program_folder
+    if existing_programme:
+        existing_programme.description = description or "Updated curriculum"
+        existing_programme.file_path = file_path
+        db.commit()
+        programme_id = existing_programme.id
+    else:
+        new_programme = Programme(
+            nom=programme_name,
+            description=description
+            or f"Curriculum uploaded on {datetime.now().strftime('%Y-%m-%d')}",
+            professeur_id=current_user.id,
+            file_path=file_path,
         )
+        db.add(new_programme)
+        db.commit()
+        db.refresh(new_programme)
+        programme_id = new_programme.id
 
-        if not file_path:
-            raise HTTPException(
-                status_code=500, detail="Failed to save curriculum file"
-            )
-
-        # Fix: Determine the name value before using it in the query
-        programme_name = nom if nom else "Default Curriculum"
-
-        # Create or update Programme record
-        # First check if there's an existing record to update
-        existing_programme = (
-            db.query(Programme)
-            .filter(
-                Programme.professeur_id == current_user.id,
-                Programme.nom == programme_name,
-            )
-            .first()
-        )
-
-        if existing_programme:
-            # Update existing record
-            existing_programme.description = description or "Updated curriculum"
-            existing_programme.file_path = file_path
-            db.commit()
-            programme_id = existing_programme.id
-        else:
-            # Create new record
-            new_programme = Programme(
-                nom=programme_name,
-                description=description
-                or f"Curriculum uploaded on {datetime.now().strftime('%Y-%m-%d')}",
-                professeur_id=current_user.id,
-                file_path=file_path,
-            )
-            db.add(new_programme)
-            db.commit()
-            db.refresh(new_programme)
-            programme_id = new_programme.id
-
-        return {
-            "message": "Curriculum uploaded successfully",
-            "programme_id": programme_id,
-            "file_path": file_path,
-        }
-
-    except Exception as e:
-        print(f"Error uploading curriculum: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to upload curriculum: {str(e)}"
-        )
+    return {
+        "message": "Curriculum uploaded successfully",
+        "programme_id": programme_id,
+        "file_path": file_path,
+    }

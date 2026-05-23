@@ -1,12 +1,15 @@
 import json
-import sqlite3
-from sqlalchemy.orm import Session
-from models import Exercice, QCM, QCMReponse, Eleve, Soumission, Resultat
-import fitz  
+import logging
 import os
+import sqlite3
 from datetime import datetime
+
+import fitz
 from sqlalchemy import text
-from sqlalchemy import inspect
+
+from models import Eleve, Exercice, QCM, QCMReponse, Resultat, Soumission
+
+logger = logging.getLogger(__name__)
 
 
 def resolve_exercice_id(db, exo_id, professeur_id=None):
@@ -44,25 +47,23 @@ def reconcile_submissions_exercise(db, eleve_id, exercice_id):
         db.commit()
 
 
-def insert_submission_data(data, db=None):
-    """
-    Insert student submission data into the database using either SQLAlchemy or direct SQLite connection.
-    
+def insert_submission_data(data, db=None):  # noqa: C901
+    """Insert student submission data via the SQLAlchemy session.
+
     Args:
-        data (dict): Structured data containing student information and responses
-        db (Session, optional): SQLAlchemy database session. If None, uses SQLite connection.
-        
+        data (dict): Structured data containing student information and responses.
+        db (Session): SQLAlchemy session. Required.
+
     Returns:
-        bool: True if successful, False otherwise
+        bool: True on success, False otherwise.
     """
     try:
-        # Validate required fields
         if not all(key in data for key in ["id_eleve", "id_exercice", "nom_eleve", "date_soumission", "reponses"]):
-            print("Error: Missing required fields in submission data")
+            logger.warning("Missing required fields in submission data")
             return False
-            
+
         if not isinstance(data["reponses"], list) or len(data["reponses"]) == 0:
-            print("Error: No responses found in submission data")
+            logger.warning("No responses found in submission data")
             return False
         
         if db:
@@ -88,9 +89,8 @@ def insert_submission_data(data, db=None):
             
             # Insert responses
             for reponse in data["reponses"]:
-                # Validate response data
                 if not all(key in reponse for key in ["question", "reponse_choisie"]):
-                    print(f"Error: Invalid response format: {reponse}")
+                    logger.warning("Invalid response format: %s", reponse)
                     continue
                 
                 # Check if submission already exists
@@ -119,10 +119,10 @@ def insert_submission_data(data, db=None):
             return True
         
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        logger.error("Database error in insert_submission_data: %s", e)
         return False
     except Exception as e:
-        print(f"Unexpected error while inserting submission data: {e}")
+        logger.exception("Unexpected error in insert_submission_data: %s", e)
         return False
 
 
@@ -157,29 +157,28 @@ def save_pdf_to_submission_folder(pdf_bytes: bytes, filename: str, submission_fo
             
         return file_path
     except Exception as e:
-        print(f"Error saving PDF file: {e}")
+        logger.exception("Error saving PDF file: %s", e)
         return ""
 
 
 def extract_text_from_pdf_from_bytes(pdf_bytes: bytes) -> str:
+    """Extract text from a PDF and persist the original file for traceability."""
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        text = "\n".join(page.get_text() for page in doc)
-        
-        # Save the PDF file with a proper filename
-        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        extracted = "\n".join(page.get_text() for page in doc)
+
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         file_path = save_pdf_to_submission_folder(
-            pdf_bytes, 
-            f"submission_{timestamp}.pdf", 
-            submission_folder="submissions"
+            pdf_bytes,
+            f"submission_{timestamp}.pdf",
+            submission_folder="submissions",
         )
-        
         if file_path:
-            print(f"PDF saved to: {file_path}")
-        
-        return text
+            logger.info("PDF saved to %s", file_path)
+
+        return extracted
     except Exception as e:
-        print(f"Error extracting text from PDF: {e}")
+        logger.exception("Error extracting text from PDF: %s", e)
         return ""
 
 def get_correct_answers_count(db, id_eleve, id_exercice):
@@ -288,12 +287,11 @@ def insert_qcm_data(qcm_data, professeur_id, db=None):
     Returns:
         Exercice: The created exercise object or None if an error occurred
     """
-    # If provided as string, parse JSON
     if isinstance(qcm_data, str):
         try:
             qcm_data = json.loads(qcm_data)
-        except json.JSONDecodeError:
-            print("Error parsing QCM data JSON")
+        except json.JSONDecodeError as e:
+            logger.error("Error parsing QCM data JSON: %s", e)
             return None
     
     if db:
@@ -333,10 +331,10 @@ def insert_qcm_data(qcm_data, professeur_id, db=None):
             return new_exercise
         except Exception as e:
             db.rollback()
-            print(f"Error inserting QCM data: {e}")
+            logger.exception("Error inserting QCM data: %s", e)
             return None
     else:
-        print("Error: No database session provided")
+        logger.error("insert_qcm_data called without a database session")
         return None
 
 def save_student_result(db, exo_id, eleve_id, score, professeur_id=None):
@@ -393,108 +391,113 @@ def save_student_result(db, exo_id, eleve_id, score, professeur_id=None):
         return new_result.id
 
 def get_metrics(db, professeur_id=None):
+    """Retrieve dashboard metrics for the current professor.
+
+    Returns:
+        dict with::
+
+            {
+                "averageScore": float,        # current month-to-date average (%)
+                "examsCorrected": int,        # total number of corrected exams
+                "scoreChange": float,         # delta vs previous month (% points)
+                "examsTrend": int,            # delta in count vs previous month
+                "hasPreviousPeriod": bool,    # True only if real data exists for last month
+            }
+
+    ``scoreChange`` and ``examsTrend`` are only meaningful when
+    ``hasPreviousPeriod`` is True. The frontend MUST hide these counters
+    otherwise instead of showing a misleading "+0%".
     """
-    Retrieve metrics data for dashboard:
-    - Average score across all results
-    - Total exams corrected
-    - Score change compared to previous month
-    """
-    from datetime import datetime, timedelta
-    from sqlalchemy import text, func
-    
-    # Define time periods for comparisons
     now = datetime.utcnow()
     current_month_start = datetime(now.year, now.month, 1)
-    previous_month_start = (current_month_start - timedelta(days=1)).replace(day=1)
-    
-    # Base query: convert stored raw score (e.g. 2/4) into a percentage.
+
+    overall_query_prof = """
+        SELECT
+            r.id,
+            (r.score * 100.0) / NULLIF((
+                SELECT COUNT(*)
+                FROM soumissions s
+                WHERE s.exercice_id = r.exercice_id
+                  AND s.eleve_id = r.eleve_id
+            ), 0) AS score_percent
+        FROM resultats r
+        JOIN exercices ex ON r.exercice_id = ex.id
+        WHERE ex.professeur_id = :prof_id
+    """
+    overall_query_all = """
+        SELECT
+            r.id,
+            (r.score * 100.0) / NULLIF((
+                SELECT COUNT(*)
+                FROM soumissions s
+                WHERE s.exercice_id = r.exercice_id
+                  AND s.eleve_id = r.eleve_id
+            ), 0) AS score_percent
+        FROM resultats r
+    """
     if professeur_id:
-        base_query = text("""
-            SELECT
-                r.id,
-                (r.score * 100.0) / NULLIF((
-                    SELECT COUNT(*)
-                    FROM soumissions s
-                    WHERE s.exercice_id = r.exercice_id
-                      AND s.eleve_id = r.eleve_id
-                ), 0) AS score_percent
-            FROM resultats r
-            JOIN exercices ex ON r.exercice_id = ex.id
-            WHERE ex.professeur_id = :prof_id
-        """)
-        params = {"prof_id": professeur_id}
+        overall_results = db.execute(
+            text(overall_query_prof), {"prof_id": professeur_id}
+        ).fetchall()
     else:
-        base_query = text("""
-            SELECT
-                r.id,
-                (r.score * 100.0) / NULLIF((
-                    SELECT COUNT(*)
-                    FROM soumissions s
-                    WHERE s.exercice_id = r.exercice_id
-                      AND s.eleve_id = r.eleve_id
-                ), 0) AS score_percent
-            FROM resultats r
-        """)
-        params = {}
-    
-    # Get current average
-    results = db.execute(base_query, params).fetchall()
-    total_exams = len(results)
-    
-    valid_scores = [r.score_percent for r in results if r.score_percent is not None]
-    if valid_scores:
-        avg_score = sum(valid_scores) / len(valid_scores)
-    else:
-        avg_score = 0
-    
-    # Get previous month data
-    if professeur_id:
-        prev_month_query = text("""
-            SELECT
-                AVG((r.score * 100.0) / NULLIF((
-                    SELECT COUNT(*)
-                    FROM soumissions s2
-                    WHERE s2.exercice_id = r.exercice_id
-                      AND s2.eleve_id = r.eleve_id
-                ), 0)) AS avg_score,
-                COUNT(DISTINCT r.id) AS count
-            FROM resultats r
-            JOIN exercices ex ON r.exercice_id = ex.id
-            JOIN soumissions s ON r.exercice_id = s.exercice_id
-            WHERE ex.professeur_id = :prof_id
-            AND s.date_soumission < :cutoff_date
-        """)
-        prev_params = {"prof_id": professeur_id, "cutoff_date": current_month_start}
-    else:
-        prev_month_query = text("""
-            SELECT
-                AVG((r.score * 100.0) / NULLIF((
-                    SELECT COUNT(*)
-                    FROM soumissions s2
-                    WHERE s2.exercice_id = r.exercice_id
-                      AND s2.eleve_id = r.eleve_id
-                ), 0)) AS avg_score,
-                COUNT(DISTINCT r.id) AS count
-            FROM resultats r
-            JOIN soumissions s ON r.exercice_id = s.exercice_id
-            WHERE s.date_soumission < :cutoff_date
-        """)
-        prev_params = {"cutoff_date": current_month_start}
-    
-    prev_result = db.execute(prev_month_query, prev_params).fetchone()
-    
-    if prev_result and prev_result.avg_score:
-        score_change = round(avg_score - prev_result.avg_score, 1)
-        exams_trend = total_exams - prev_result.count
+        overall_results = db.execute(text(overall_query_all)).fetchall()
+
+    total_exams = len(overall_results)
+    valid_scores = [r.score_percent for r in overall_results if r.score_percent is not None]
+    avg_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0
+
+    period_query = """
+        SELECT
+            (r.score * 100.0) / NULLIF((
+                SELECT COUNT(*) FROM soumissions s2
+                WHERE s2.exercice_id = r.exercice_id
+                  AND s2.eleve_id = r.eleve_id
+            ), 0) AS score_percent,
+            MAX(s.date_soumission) AS last_submission
+        FROM resultats r
+        JOIN exercices ex ON r.exercice_id = ex.id
+        JOIN soumissions s ON s.exercice_id = r.exercice_id AND s.eleve_id = r.eleve_id
+        {prof_filter}
+        GROUP BY r.id
+    """
+    prof_filter = "WHERE ex.professeur_id = :prof_id" if professeur_id else ""
+    period_params = {"prof_id": professeur_id} if professeur_id else {}
+    period_rows = db.execute(
+        text(period_query.format(prof_filter=prof_filter)), period_params
+    ).fetchall()
+
+    current_scores = []
+    previous_scores = []
+    for row in period_rows:
+        last_dt = row.last_submission
+        if isinstance(last_dt, str):
+            try:
+                last_dt = datetime.fromisoformat(last_dt.replace(" ", "T"))
+            except ValueError:
+                last_dt = None
+        if last_dt is None or row.score_percent is None:
+            continue
+        if last_dt >= current_month_start:
+            current_scores.append(row.score_percent)
+        else:
+            previous_scores.append(row.score_percent)
+
+    has_previous_period = bool(previous_scores) and bool(current_scores)
+    if has_previous_period:
+        current_avg = sum(current_scores) / len(current_scores)
+        previous_avg = sum(previous_scores) / len(previous_scores)
+        score_change = round(current_avg - previous_avg, 1)
+        exams_trend = len(current_scores) - len(previous_scores)
     else:
         score_change = 0
-        exams_trend = total_exams
-    
+        exams_trend = 0
+
     return {
         "averageScore": round(avg_score, 1),
         "examsCorrected": total_exams,
         "scoreChange": score_change,
-        "examsTrend": exams_trend
+        "examsTrend": exams_trend,
+        "hasPreviousPeriod": has_previous_period,
     }
 
 def get_student_list(db, professeur_id=None):
@@ -547,37 +550,6 @@ def get_exercises_list(db, professeur_id=None):
     exercises = db.execute(query, params).fetchall()
     return [{"id": ex.id, "titre": ex.titre, "contenu": ex.contenu} for ex in exercises]
  
-
-def get_student_data(db, eleve_id):
-    """Récupère les données complètes sur un élève et ses performances"""
-    query = text("""
-    SELECT 
-        e.id, 
-        e.nom AS nom_eleve, 
-        e.email,
-        ex.id, 
-        ex.titre AS titre_exercice, 
-        ex.contenu,
-        s.date_soumission,
-        s.question AS question_soumise,
-        s.answer AS reponse_soumise,
-        r.score,
-        qcm.question AS question_qcm
-    FROM 
-        Eleve e
-    LEFT JOIN 
-        Soumissions s ON e.id = s.eleve_id
-    LEFT JOIN 
-        Exercices ex ON s.exercice_id = ex.id
-    LEFT JOIN 
-        Resultats r ON s.id = r.id
-    LEFT JOIN 
-        QCMS qcm ON s.exercice_id = qcm.id
-    WHERE 
-        e.id = :eleve_id
-    """)
-    
-    return db.execute(query, {"eleve_id": eleve_id}).fetchall()
 
 def get_exercise_submissions(db, eleve_id, exercice_id):
     """Récupère les soumissions d'un élève pour un exercice spécifique"""
@@ -805,23 +777,3 @@ def get_exams_for_professor(db, professor_id):
     
     return [{"id": row.id, "name": row.name} for row in result] 
 
-
-def add_missing_columns(engine):
-    """Add missing columns to existing tables without recreating the database"""
-    try:
-        # Get inspector to check existing columns
-        inspector = inspect(engine)
-        
-        # Check if file_path column exists in programmes table
-        existing_columns = [col['name'] for col in inspector.get_columns('programmes')]
-        
-        if 'file_path' not in existing_columns:
-            # Add the missing column
-            with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE programmes ADD COLUMN file_path VARCHAR"))
-                print("Added file_path column to programmes table")
-        
-        # Check for other missing columns as needed
-        
-    except Exception as e:
-        print(f"Error updating database schema: {e}")

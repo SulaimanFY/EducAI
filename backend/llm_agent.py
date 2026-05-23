@@ -1,4 +1,9 @@
 # llm_agent.py
+import json
+import logging
+import os
+import re
+
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.prompts import PromptTemplate
@@ -7,15 +12,10 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
 from langchain_community.tools import DuckDuckGoSearchRun
-from langgraph.graph import END, StateGraph
-from langgraph.graph.message import add_messages
-from sqlalchemy import text, inspect
-from models import Recommendation, Programme
-import json
-import re
-import sqlite3
-from typing import Annotated, TypedDict
-import os
+
+from models import Programme, Recommendation
+
+logger = logging.getLogger(__name__)
 
 llm = ChatOpenAI(
     model_name="gpt-4o",
@@ -84,36 +84,35 @@ Crée des QCM variés, uniques et pédagogiques pour les élèves du cycle 2, sa
 )
 
 def invoke_generate_qcm_agent(prompt, professeur_id, db):
-    # Récupérer le curriculum spécifique du professeur à partir de son ID
     professor_curriculum = get_professor_curriculum(professeur_id, db)
-    
-    # Si aucun curriculum spécifique n'est trouvé ou s'il est incomplet
-    if not professor_curriculum :
-        # Vérifier si le programme/curriculum est mentionné dans le prompt
+
+    if not professor_curriculum:
         if "programme" in prompt.lower() or "curriculum" in prompt.lower():
-            # Rechercher le curriculum dans un PDF local
             pdf_path = "program/cycle2_maths.pdf"
             retriever = load_pdf_curriculum(pdf_path)
-            
+
             if retriever:
-                # Extraire l'information pertinente du PDF
                 results = retriever.get_relevant_documents(prompt)
-                curriculum_info = results[0].page_content if results else "Aucune info trouvée."
+                curriculum_info = (
+                    results[0].page_content if results else "Aucune info trouvée."
+                )
             else:
-                # Rechercher le curriculum en ligne si le PDF n'existe pas
-                curriculum_info = fetch_latest_curriculum() or "Impossible de récupérer le programme."
-                
-                # Sauvegarder ce curriculum pour une utilisation future par le professeur
-                if curriculum_info and curriculum_info != "Impossible de récupérer le programme.":
-                    save_professor_curriculum(professeur_id, curriculum_info)
-            
-            # Utiliser le curriculum trouvé
+                curriculum_info = (
+                    fetch_latest_curriculum() or "Impossible de récupérer le programme."
+                )
+                if (
+                    curriculum_info
+                    and curriculum_info != "Impossible de récupérer le programme."
+                ):
+                    save_professor_curriculum(professeur_id, curriculum_info, db)
+
             programme_context = curriculum_info
         else:
-            # Utiliser un curriculum par défaut pour le cycle 2
-            programme_context = "Programme de mathématiques du cycle 2 (CP, CE1, CE2) incluant la numération, le calcul, la géométrie et les mesures."
+            programme_context = (
+                "Programme de mathématiques du cycle 2 (CP, CE1, CE2) incluant la "
+                "numération, le calcul, la géométrie et les mesures."
+            )
     else:
-        # Utiliser le curriculum spécifique du professeur
         programme_context = professor_curriculum
     
     prompt_lower = prompt.lower()
@@ -143,26 +142,21 @@ def invoke_generate_qcm_agent(prompt, professeur_id, db):
     try:
         return json.loads(json_content)
     except json.JSONDecodeError as e:
-        print(f"Erreur JSON: {e}")
-        print(f"Sortie brute après nettoyage: {repr(json_content)}")
-        # Tenter une dernière solution - extraire seulement le premier objet JSON valide
+        logger.warning("QCM JSON parse error: %s. Trying balanced-braces fallback.", e)
         try:
-            # Trouver les accolades ouvrantes et fermantes correspondantes pour extraire le 1er objet JSON complet
             depth = 0
-            start_pos = json_content.find('{')
-            
+            start_pos = json_content.find("{")
             if start_pos >= 0:
                 for i in range(start_pos, len(json_content)):
-                    if json_content[i] == '{':
+                    if json_content[i] == "{":
                         depth += 1
-                    elif json_content[i] == '}':
+                    elif json_content[i] == "}":
                         depth -= 1
                         if depth == 0:
-                            # On a trouvé un objet JSON complet
-                            return json.loads(json_content[start_pos:i+1])
+                            return json.loads(json_content[start_pos : i + 1])
         except Exception as e2:
-            print(f"Échec de l'extraction d'un objet JSON valide: {e2}")
-        
+            logger.error("Balanced-braces fallback failed: %s", e2)
+
         raise ValueError(f"Impossible de parser la réponse en JSON: {e}")
 
 
@@ -260,21 +254,8 @@ def invoke_analyze_student_copy_agent(text: str):
     try:
         return json.loads(qcm_json_clean)
     except json.JSONDecodeError as e:
-        print(f"Erreur JSON: {e}")
-        print(f"Sortie brute après nettoyage: {repr(qcm_json_clean)}")
+        logger.error("Cannot parse student copy JSON: %s", e)
         raise
-
-
-
-def invoke_llm(prompt: str) -> str:
-    """
-    Invoque l'agent LLM avec le prompt fourni et retourne la réponse.
-    """
-    response = llm.invoke([
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=prompt)
-    ]).content
-    return response
 
 
 def invoke_llm_recommendation_agent(student_name, student_email, performance_details):
@@ -335,79 +316,52 @@ def load_pdf_curriculum(pdf_path):
 
 
 def fetch_latest_curriculum():
-    search_tool = DuckDuckGoSearchRun()
-    results = search_tool.invoke("Cycle 2 math programme France site:education.gouv.fr")
-    return results if results else None
+    try:
+        search_tool = DuckDuckGoSearchRun()
+        results = search_tool.invoke(
+            "Cycle 2 math programme France site:education.gouv.fr"
+        )
+        return results if results else None
+    except Exception as e:
+        logger.warning("DuckDuckGo curriculum lookup failed: %s", e)
+        return None
 
-
-
-class State(TypedDict):
-    messages: Annotated[list, add_messages]
-
-
-def chatbot_agent(state: State):
-    user_message = state["messages"][-1].content.lower()
-    if "programme" in user_message or "curriculum" in user_message:
-        pdf_path = "program/cycle2_maths.pdf"
-        retriever = load_pdf_curriculum(pdf_path)
-        if retriever:
-            results = retriever.get_relevant_documents(user_message)
-            curriculum_info = (
-                results[0].page_content if results else "Aucune info trouvée."
-            )
-        else:
-            curriculum_info = (
-                fetch_latest_curriculum() or "Impossible de récupérer le programme."
-            )
-        response = generate_qcm_based_on_curriculum(user_message + curriculum_info)
-    else:
-        response = llm.invoke(
-            [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=user_message)]
-        ).content
-    return {"messages": [HumanMessage(content=response)]}
-
-
-graph_builder = StateGraph(State)
-graph_builder.add_node("chatbot", chatbot_agent)
-graph_builder.set_entry_point("chatbot")
-graph_builder.add_edge("chatbot", END)
-chatbot = graph_builder.compile()
 
 def get_professor_curriculum(professeur_id, db):
-    """
-    Récupère le curriculum spécifique d'un professeur depuis la base de données.
-    """
+    """Retourne le retriever PDF du programme du professeur, ou ``None``."""
     try:
-        # Utiliser la session SQLAlchemy pour récupérer le programme
-        result = db.query(Programme).filter(Programme.professeur_id == professeur_id).first()
-        
+        result = (
+            db.query(Programme)
+            .filter(Programme.professeur_id == professeur_id)
+            .first()
+        )
         if result and result.file_path:
-            # Récupérer le contenu du fichier PDF
-            retriever = load_pdf_curriculum(result.file_path)
-            # Retourner le curriculum s'il existe
-            return retriever
+            return load_pdf_curriculum(result.file_path)
         return None
     except Exception as e:
-        print(f"Erreur lors de la récupération du curriculum: {e}")
+        logger.exception("Error fetching professor curriculum: %s", e)
         return None
 
+
 def save_professor_curriculum(professeur_id, curriculum, db):
-    """
-    Sauvegarde le curriculum pour un professeur spécifique.
-    """
+    """Persiste un texte de curriculum pour un professeur."""
     try:
-        # Utiliser la session SQLAlchemy pour mettre à jour le programme
-        programme = db.query(Programme).filter(Programme.professeur_id == professeur_id).first()
-        
+        programme = (
+            db.query(Programme)
+            .filter(Programme.professeur_id == professeur_id)
+            .first()
+        )
         if programme:
             programme.description = curriculum
             db.commit()
             return True
-        else:
-            print(f"Avertissement: Professeur ID {professeur_id} non trouvé dans la base de données")
-            return False
+        logger.warning(
+            "Professor ID %s has no Programme row; curriculum not persisted",
+            professeur_id,
+        )
+        return False
     except Exception as e:
-        print(f"Erreur lors de la sauvegarde du curriculum: {e}")
+        logger.exception("Error saving professor curriculum: %s", e)
         db.rollback()
         return False
 
