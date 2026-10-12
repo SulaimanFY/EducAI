@@ -16,13 +16,21 @@ EducAI was built by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTARA** as the
 
 ---
 
+## Demo
+
+[![EducAI demo: ask for a quiz, mark a pupil's answer sheet, get advice for the pupil](docs/demo/EducAI-demo-poster.jpg)](docs/demo/EducAI-demo.mp4)
+
+*A one-minute silent walkthrough recorded from the running app, with real AI calls: ask for a quiz, mark a pupil's PDF answer sheet, then get advice for that pupil. The 14 seconds the AI took to write the quiz are cut, and the video says so on screen. Click the image to open the video ([MP4, 5 MB](docs/demo/EducAI-demo.mp4)).*
+
+---
+
 ## Screenshots
 
 #### 1. Ask for an exercise
 
 ![Exercise chat](docs/screenshots/01-chat.png)
 
-*The teacher asks for a quiz in plain English: topic, grade and number of questions.*
+*The teacher asks for a quiz in plain English, here a quiz on 2D shapes for Grade 1.*
 
 #### 2. Generated quiz with its answer key
 
@@ -34,7 +42,7 @@ EducAI was built by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTARA** as the
 
 ![Dashboard](docs/screenshots/03-dashboard.png)
 
-*The dashboard gives access to marking, insights, results, the profile and the curriculum upload.*
+*The class at a glance (average score, sheets marked, pupils, exercises), the three steps of the workflow and the latest exercises. The menu leads to marking, insights, results, the curriculum upload and the profile.*
 
 #### 4. Marking an answer sheet
 
@@ -46,13 +54,13 @@ EducAI was built by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTARA** as the
 
 ![Recommendations](docs/screenshots/05-recommendations.png)
 
-*Strengths, areas to improve, recommendations and suggested resources, based only on the pupil's actual results.*
+*For one pupil across all their exercises: strengths, areas to improve with the exact question and answer, recommendations and suggested resources, based only on the pupil's actual results.*
 
 #### 6. Exam results
 
 ![Results](docs/screenshots/06-results.png)
 
-*Every exam and each pupil's score, kept over time.*
+*The results of one exercise: each pupil's score, date and status.*
 
 ---
 
