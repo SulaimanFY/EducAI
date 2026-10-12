@@ -20,7 +20,7 @@ EducAI was built by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTARA** as the
 
 [![EducAI demo: ask for a quiz, mark a pupil's answer sheet, get advice for the pupil](docs/demo/EducAI-demo-poster.jpg)](docs/demo/EducAI-demo.mp4)
 
-*A one-minute silent walkthrough recorded from the running app, with real AI calls: ask for a quiz, mark a pupil's PDF answer sheet, then get advice for that pupil. The 14 seconds the AI took to write the quiz are cut, and the video says so on screen. Click the image to open the video ([MP4, 5 MB](docs/demo/EducAI-demo.mp4)).*
+*A one-minute silent walkthrough recorded from the running app, with real AI calls: ask for a quiz, mark a pupil's PDF answer sheet, then get advice for that pupil. The wait while the AI writes the quiz is cut. Click the image to open the video ([MP4, 5 MB](docs/demo/EducAI-demo.mp4)).*
 
 ---
 
