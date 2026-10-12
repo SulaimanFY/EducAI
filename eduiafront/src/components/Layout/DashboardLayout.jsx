@@ -1005,7 +1005,7 @@ const Overview = ({ user, setActiveTab, setSelectedExamId, navigate }) => {
 
       <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={5}>
         {steps.map((step) => (
-          <Panel key={step.title}>
+          <Panel key={step.title} display="flex" flexDirection="column" alignItems="flex-start">
             <Icon as={step.icon} boxSize={6} color="brand.500" mb={3} />
             <Text fontWeight="700" color="gray.900" mb={1}>
               {step.title}
@@ -1013,7 +1013,7 @@ const Overview = ({ user, setActiveTab, setSelectedExamId, navigate }) => {
             <Text fontSize="sm" color="gray.600" mb={4}>
               {step.text}
             </Text>
-            <Button size="sm" variant="outline" onClick={step.onClick}>
+            <Button size="sm" variant="outline" mt="auto" onClick={step.onClick}>
               {step.action}
             </Button>
           </Panel>
