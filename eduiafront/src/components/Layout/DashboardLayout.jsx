@@ -38,6 +38,7 @@ import {
   FiFileText,
   FiHome,
   FiMenu,
+  FiMessageSquare,
   FiUpload,
   FiUser
 } from "react-icons/fi";
@@ -107,7 +108,7 @@ const CorrectExam = () => {
 
       if (data.warning) {
         toast({
-          title: "Attention",
+          title: "Warning",
           description: data.warning,
           status: "warning",
           duration: 7000,
@@ -136,7 +137,11 @@ const CorrectExam = () => {
             isCorrect: isCorrect
           };
         });
-        
+
+        // Show questions in order (Q1, Q2, ...)
+        const questionNumber = (q) => parseInt(String(q).replace(/\D/g, ""), 10) || 0;
+        formattedResults.sort((x, y) => questionNumber(x.question) - questionNumber(y.question));
+
         setResults(formattedResults);
       } else {
         toast({
@@ -266,18 +271,18 @@ const CorrectExam = () => {
         bg="white" 
         mb={6}
       >
-        <Heading size="md" mb={4}>Corriger l'Examen</Heading>
+        <Heading size="md" mb={4}>Mark an Exam</Heading>
         <Box mb={4}>
-          <Heading size="sm" mb={2}>Télécharger l'Examen de l'Étudiant</Heading>
+          <Heading size="sm" mb={2}>Upload the pupil's answer sheet (PDF)</Heading>
           <input type="file" onChange={handleFileChange} />
           <Button 
             onClick={handleSubmit} 
             colorScheme="blue" 
             mt={4} 
             isLoading={isSubmitting}
-            loadingText="Traitement..."
+            loadingText="Marking..."
           >
-            Soumettre
+            Mark this sheet
           </Button>
         </Box>
       </Box>
@@ -294,28 +299,28 @@ const CorrectExam = () => {
             mb={6}
           >
             <Heading size="md" textAlign="center" mb={4}>
-              Résumé de l'Examen
+              Exam Summary
             </Heading>
             
             <SimpleGrid columns={{ base: 1, md: 3 }} spacing={5} mt={4}>
               <Box textAlign="center">
-                <Text fontWeight="bold" color="gray.500">Étudiant</Text>
+                <Text fontWeight="bold" color="gray.500">Pupil</Text>
                 <Text fontSize="lg" color="orange.500">
-                  {examData.data?.nom_eleve || "Inconnu"}
+                  {examData.data?.nom_eleve || "Unknown"}
                 </Text>
               </Box>
               
               <Box textAlign="center">
-                <Text fontWeight="bold" color="gray.500">Exercice</Text>
+                <Text fontWeight="bold" color="gray.500">Exercise</Text>
                 <Text fontSize="lg" color="orange.500">
-                  {examData.data?.id_exercice || "Inconnu"}
+                  {examData.data?.id_exercice || "Unknown"}
                 </Text>
               </Box>
               
               <Box textAlign="center">
                 <Text fontWeight="bold" color="gray.500">Date</Text>
                 <Text fontSize="lg" color="orange.500">
-                  {examData.data?.date_soumission || "Inconnue"}
+                  {examData.data?.date_soumission || "Unknown"}
                 </Text>
               </Box>
             </SimpleGrid>
@@ -334,7 +339,7 @@ const CorrectExam = () => {
               </Heading>
               
               <Text mt={2}>
-                Réponses Correctes ({scorePercentage}%)
+                Correct answers ({scorePercentage}%)
               </Text>
               
               <Progress 
@@ -351,7 +356,7 @@ const CorrectExam = () => {
                 colorScheme="green" 
                 mt={4}
               >
-                Valider Tous les Résultats
+                Validate results
               </Button>
             </Box>
           </Box>
@@ -372,14 +377,14 @@ const CorrectExam = () => {
               borderBottomColor="gray.200"
             >
               <Heading size="md" color="blue.500">
-                Détails des Questions
+                Question details
               </Heading>
               
               <IconButton
                 icon={expandDetails ? <FiChevronUp /> : <FiChevronDown />}
                 variant="ghost"
                 onClick={() => setExpandDetails(!expandDetails)}
-                aria-label={expandDetails ? "Réduire les détails" : "Afficher les détails"}
+                aria-label={expandDetails ? "Hide details" : "Show details"}
               />
             </Flex>
             
@@ -389,10 +394,10 @@ const CorrectExam = () => {
                   <Thead bg="blue.100">
                     <Tr>
                       <Th>QUESTION</Th>
-                      <Th>QUESTION COMPLÈTE</Th>
-                      <Th>RÉPONSE DE L'ÉTUDIANT</Th>
-                      <Th>RÉPONSE CORRECTE</Th>
-                      <Th>STATUT</Th>
+                      <Th>FULL QUESTION</Th>
+                      <Th>PUPIL'S ANSWER</Th>
+                      <Th>CORRECT ANSWER</Th>
+                      <Th>STATUS</Th>
                       <Th>SCORE</Th>
                       <Th>ACTIONS</Th>
                     </Tr>
@@ -429,8 +434,8 @@ const CorrectExam = () => {
                             fontWeight="medium"
                             display="inline-block"
                           >
-                            {result.status === "PENDING VALIDATION" ? "EN ATTENTE" : 
-                             result.status === "CORRECTED" ? "CORRIGÉ" : result.status}
+                            {result.status === "PENDING VALIDATION" ? "PENDING" : 
+                             result.status === "CORRECTED" ? "VALIDATED" : result.status}
                           </Box>
                         </Td>
                         <Td>
@@ -465,7 +470,7 @@ const CorrectExam = () => {
                             colorScheme={editableResult?.id === result.id ? "green" : "yellow"}
                             size="sm"
                           >
-                            {editableResult?.id === result.id ? "Enregistrer" : "Modifier"}
+                            {editableResult?.id === result.id ? "Save" : "Edit"}
                           </Button>
                         </Td>
                       </Tr>
@@ -555,7 +560,7 @@ const Insights = () => {
 
   const handleGetRecommendation = async () => {
     if (!selectedStudent) {
-      setError("Please select a student");
+      setError("Please select a pupil");
       return;
     }
     
@@ -580,29 +585,29 @@ const Insights = () => {
   return (
     <Box>
       <Box p={5} shadow="md" borderWidth="1px" borderRadius="lg" bg="white" mb={5}>
-        <Heading size="md" mb={4}>Analyses de Performance</Heading>
+        <Heading size="md" mb={4}>Performance Insights</Heading>
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
           <Stat p={3} shadow="sm" border="1px" borderColor="gray.200" borderRadius="md">
-            <StatLabel>Score Moyen</StatLabel>
+            <StatLabel>Average score</StatLabel>
             <StatNumber>{metrics.averageScore}%</StatNumber>
             {metrics.hasPreviousPeriod ? (
               <StatHelpText color={metrics.scoreChange >= 0 ? "green.500" : "red.500"}>
-                {metrics.scoreChange >= 0 ? "↗︎" : "↘︎"} {Math.abs(metrics.scoreChange)}% depuis le mois dernier
+                {metrics.scoreChange >= 0 ? "↗︎" : "↘︎"} {Math.abs(metrics.scoreChange)}% since last month
               </StatHelpText>
             ) : (
-              <StatHelpText color="gray.500">Pas encore de comparaison disponible</StatHelpText>
+              <StatHelpText color="gray.500">No previous month to compare yet</StatHelpText>
             )}
             <Progress value={metrics.averageScore} colorScheme="green" mt={2} />
           </Stat>
           <Stat p={3} shadow="sm" border="1px" borderColor="gray.200" borderRadius="md">
-            <StatLabel>Examens Corrigés</StatLabel>
+            <StatLabel>Exams marked</StatLabel>
             <StatNumber>{metrics.examsCorrected}</StatNumber>
             {metrics.hasPreviousPeriod ? (
               <StatHelpText color={metrics.examsTrend >= 0 ? "green.500" : "red.500"}>
-                {metrics.examsTrend >= 0 ? "↗︎" : "↘︎"} {Math.abs(metrics.examsTrend)} depuis le mois dernier
+                {metrics.examsTrend >= 0 ? "↗︎" : "↘︎"} {Math.abs(metrics.examsTrend)} since last month
               </StatHelpText>
             ) : (
-              <StatHelpText color="gray.500">Pas encore de comparaison disponible</StatHelpText>
+              <StatHelpText color="gray.500">No previous month to compare yet</StatHelpText>
             )}
           </Stat>
         </SimpleGrid>
@@ -610,11 +615,11 @@ const Insights = () => {
       
       {/* Recommendation Section */}
       <Box p={5} shadow="md" borderWidth="1px" borderRadius="lg" bg="white">
-        <Heading size="md" mb={4}>Recommandations pour les Étudiants</Heading>
+        <Heading size="md" mb={4}>Pupil Recommendations</Heading>
         
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5} mb={5}>
           <Box>
-            <Text fontWeight="medium" mb={2}>Sélectionner un Étudiant</Text>
+            <Text fontWeight="medium" mb={2}>Select a pupil</Text>
             <select 
               value={selectedStudent} 
               onChange={(e) => setSelectedStudent(e.target.value)}
@@ -625,7 +630,7 @@ const Insights = () => {
                 border: "1px solid #E2E8F0"
               }}
             >
-              <option value="">-- Sélectionner un étudiant --</option>
+              <option value="">-- Select a pupil --</option>
               {students.map(student => (
                 <option key={student.id} value={student.id}>
                   {student.nom}{student.email ? ` (${student.email})` : ""}
@@ -635,7 +640,7 @@ const Insights = () => {
           </Box>
           
           <Box>
-            <Text fontWeight="medium" mb={2}>Sélectionner un Exercice (Optionnel)</Text>
+            <Text fontWeight="medium" mb={2}>Select an exercise (optional)</Text>
             <select 
               value={selectedExercise} 
               onChange={(e) => setSelectedExercise(e.target.value)}
@@ -646,7 +651,7 @@ const Insights = () => {
                 border: "1px solid #E2E8F0"
               }}
             >
-              <option value="">-- Tous les exercices --</option>
+              <option value="">-- All exercises --</option>
               {exercises.map(exercise => (
                 <option key={exercise.id} value={exercise.id}>
                   {exercise.titre}
@@ -664,7 +669,7 @@ const Insights = () => {
           width="full"
           mb={4}
         >
-          Obtenir des Recommandations
+          Get recommendations
         </Button>
         
         {error && (
@@ -675,25 +680,25 @@ const Insights = () => {
         
         {recommendation && (
           <Box mt={4} p={4} bg="blue.50" borderRadius="md">
-            <Heading size="sm" mb={3} color="blue.700">Recommandations Personnalisées</Heading>
+            <Heading size="sm" mb={3} color="blue.700">Personalised recommendations</Heading>
             
             <Box mb={3}>
-              <Text fontWeight="bold" color="green.600">Points Forts:</Text>
+              <Text fontWeight="bold" color="green.600">Strengths:</Text>
               {renderRecommendationItems(recommendation.strengths, "green")}
             </Box>
             
             <Box mb={3}>
-              <Text fontWeight="bold" color="orange.600">Points à Améliorer:</Text>
+              <Text fontWeight="bold" color="orange.600">Areas to improve:</Text>
               {renderRecommendationItems(recommendation.weaknesses, "orange")}
             </Box>
             
             <Box mb={3}>
-              <Text fontWeight="bold" color="blue.600">Recommandations:</Text>
+              <Text fontWeight="bold" color="blue.600">Recommendations:</Text>
               {renderRecommendationItems(recommendation.recommendations, "blue")}
             </Box>
             
             <Box>
-              <Text fontWeight="bold" color="purple.600">Ressources Suggérées:</Text>
+              <Text fontWeight="bold" color="purple.600">Suggested resources:</Text>
               {renderRecommendationItems(recommendation.resources, "purple")}
             </Box>
           </Box>
@@ -729,20 +734,20 @@ const ExamResults = ({ setActiveTab, setSelectedExamId }) => {
 
   return (
     <Box p={5} shadow="md" borderWidth="1px" borderRadius="lg" bg="white">
-      <Heading size="md" mb={4}>Résultats des Examens</Heading>
+      <Heading size="md" mb={4}>Exam Results</Heading>
       {loading ? (
-        <Text>Chargement...</Text>
+        <Text>Loading...</Text>
       ) : exams.length === 0 ? (
         <Box textAlign="center" py={4}>
-          <Text color="gray.500">Aucun examen trouvé</Text>
+          <Text color="gray.500">No exams yet</Text>
         </Box>
       ) : (
         <Table variant="simple" size="sm">
           <Thead bg="blue.50">
             <Tr>
               <Th>ID</Th>
-              <Th>Titre de l'Examen</Th>
-              <Th>Date de Création</Th>
+              <Th>Exam title</Th>
+              <Th>Created on</Th>
               <Th>Actions</Th>
             </Tr>
           </Thead>
@@ -762,7 +767,7 @@ const ExamResults = ({ setActiveTab, setSelectedExamId }) => {
                     size="sm"
                     onClick={() => handleExamClick(exam.id)}
                   >
-                    Voir Résultats
+                    View results
                   </Button>
                 </Td>
               </Tr>
@@ -806,33 +811,33 @@ const ExamDetails = ({ examId, setActiveTab }) => {
     <Box p={5} shadow="md" borderWidth="1px" borderRadius="lg" bg="white">
       <Flex justify="space-between" align="center" mb={6}>
         <Heading size="md">
-          Résultats pour l'Examen: {examTitle || `ID: ${examId}`}
+          Results for: {examTitle || `Exam ${examId}`}
         </Heading>
         <Button 
           leftIcon={<FiChevronLeft />} 
           variant="outline" 
           onClick={() => setActiveTab("results")}
         >
-          Retour
+          Back
         </Button>
       </Flex>
       
       {loading ? (
         <Flex justify="center" py={8}>
-          <Text>Chargement des résultats...</Text>
+          <Text>Loading results...</Text>
         </Flex>
       ) : results.length === 0 ? (
         <Box textAlign="center" py={8} bg="gray.50" borderRadius="md">
-          <Text color="gray.500">Aucun résultat disponible pour cet examen</Text>
+          <Text color="gray.500">No results for this exam yet</Text>
         </Box>
       ) : (
         <Table variant="simple" size="md">
           <Thead bg="blue.50">
             <Tr>
-              <Th>Étudiant</Th>
+              <Th>Pupil</Th>
               <Th>Score</Th>
-              <Th>Date de Soumission</Th>
-              <Th>Statut</Th>
+              <Th>Submitted on</Th>
+              <Th>Status</Th>
             </Tr>
           </Thead>
           <Tbody>
@@ -869,7 +874,7 @@ const ExamDetails = ({ examId, setActiveTab }) => {
       
       <Flex justify="center" mt={6}>
         <Button onClick={() => setActiveTab("results")}>
-          Retour à la liste des examens
+          Back to all exams
         </Button>
       </Flex>
     </Box>
@@ -895,8 +900,8 @@ const DashboardLayout = () => {
           // Token expired or invalid
           localStorage.removeItem("token");
           toast({
-            title: "Session expirée",
-            description: "Votre session a expiré. Veuillez vous reconnecter.",
+            title: "Session expired",
+            description: "Your session has expired. Please sign in again.",
             status: "warning",
             duration: 5000,
             isClosable: true,
@@ -939,8 +944,8 @@ const DashboardLayout = () => {
         // If error is not 401 (which is handled by interceptor)
         if (!error.response || error.response.status !== 401) {
           toast({
-            title: "Erreur d'authentification",
-            description: "Veuillez vous reconnecter.",
+            title: "Authentication error",
+            description: "Please sign in again.",
             status: "error",
             duration: 5000,
             isClosable: true,
@@ -962,15 +967,25 @@ const DashboardLayout = () => {
     }
   }, [activeTab, navigate]);
 
+  const pageTitles = {
+    dashboard: "Dashboard",
+    "correct-exam": "Mark Exam",
+    insights: "Insights",
+    results: "Results",
+    "exam-details": "Results",
+    profile: "Profile",
+    curriculum: "Curriculum",
+  };
+
   const SidebarContent = ({ onClose, setActiveTab, activeTab, ...rest }) => {
     const items = [
-      { name: "Tableau de Bord", icon: FiHome, id: "dashboard" },
-      { name: "Corriger Examen", icon: FiCheckCircle, id: "correct-exam" },
-      { name: "Analyses", icon: FiBarChart2, id: "insights" },
-      { name: "Résultats", icon: FiFileText, id: "results" },
-      { name: "Profil", icon: FiUser, id: "profile" },
+      { name: "Dashboard", icon: FiHome, id: "dashboard" },
+      { name: "Mark Exam", icon: FiCheckCircle, id: "correct-exam" },
+      { name: "Insights", icon: FiBarChart2, id: "insights" },
+      { name: "Results", icon: FiFileText, id: "results" },
+      { name: "Profile", icon: FiUser, id: "profile" },
       { name: "Curriculum", icon: FiUpload, id: "curriculum" },
-      { name: "Accueil", icon: FiHome, id: "homepage" }
+      { name: "Exercise chat", icon: FiMessageSquare, id: "homepage" }
     ];
 
     return (
@@ -987,7 +1002,7 @@ const DashboardLayout = () => {
         {...rest}
       >
         <Flex h="20" alignItems="center" mx="8" justifyContent="space-between">
-          <Text fontSize="2xl" fontWeight="bold">EduIA</Text>
+          <Text fontSize="2xl" fontWeight="bold">EducAI</Text>
         </Flex>
         <VStack spacing={4} align="stretch" mt={6}>
           {items.map((item) => (
@@ -1037,7 +1052,7 @@ const DashboardLayout = () => {
         <IconButton
           variant="outline"
           onClick={onOpen}
-          aria-label="ouvrir menu"
+          aria-label="open menu"
           icon={<FiMenu />}
           display={{ md: "none" }}
         />
@@ -1047,10 +1062,10 @@ const DashboardLayout = () => {
           fontWeight="bold"
           display={{ base: "none", md: "flex" }}
         >
-          Tableau de Bord
+          {pageTitles[activeTab] || "Dashboard"}
         </Text>
         <Flex alignItems="center" ml="auto">
-          <Avatar size="sm" name={user ? user.nom : "Utilisateur"} bg="blue.500" />
+          <Avatar size="sm" name={user ? user.nom : "User"} bg="blue.500" />
         </Flex>
       </Flex>
     );
@@ -1074,80 +1089,80 @@ const DashboardLayout = () => {
       case "profile":
         return (
           <Box p={5} shadow="md" borderWidth="1px" borderRadius="lg" bg="white">
-            <Heading size="md" mb={4}>Profil Utilisateur</Heading>
+            <Heading size="md" mb={4}>Profile</Heading>
             <Flex direction="column" align="center" mb={4}>
-              <Avatar size="xl" name={user ? user.nom : "Utilisateur"} bg="blue.500" mb={4} />
-              <Text fontWeight="bold">{user ? user.nom : "Utilisateur"}</Text>
-              <Text color="gray.500">{user ? user.email : "utilisateur@exemple.com"}</Text>
+              <Avatar size="xl" name={user ? user.nom : "User"} bg="blue.500" mb={4} />
+              <Text fontWeight="bold">{user ? user.nom : "User"}</Text>
+              <Text color="gray.500">{user ? user.email : "user@example.com"}</Text>
             </Flex>
           </Box>
         );
       case "curriculum":
         return <CurriculumUpload />;
       case "homepage":
-        return <Box>Redirection vers la page d'accueil...</Box>;
+        return <Box>Redirecting to the exercise chat...</Box>;
       default:
         return (
           <SimpleGrid columns={{ base: 1, md: 1, lg: 1 }} spacing={5}>
           
             
-            {/* Documentation d'aide pour les utilisateurs */}
+            {/* Quick guide for teachers */}
             <Box p={5} shadow="md" borderWidth="1px" borderRadius="lg" bg="white">
-              <Heading size="md" mb={4} color="blue.600">Guide d'Utilisation du Tableau de Bord</Heading>
+              <Heading size="md" mb={4} color="blue.600">How to use the dashboard</Heading>
               
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
                 <Box>
                   <Heading size="sm" mb={3} display="flex" alignItems="center">
-                    <Icon as={FiHome} mr={2} color="blue.500" /> Tableau de Bord
+                    <Icon as={FiHome} mr={2} color="blue.500" /> Dashboard
                   </Heading>
                   <Text fontSize="sm" color="gray.600" mb={4}>
-                    Visualisez un aperçu général des performances, avec les métriques clés et les recommandations personnalisées pour les étudiants.
+                    See an overview of class performance, with key metrics and personalised recommendations for each pupil.
                   </Text>
                   
                   <Heading size="sm" mb={3} display="flex" alignItems="center">
-                    <Icon as={FiCheckCircle} mr={2} color="green.500" /> Corriger Examen
+                    <Icon as={FiCheckCircle} mr={2} color="green.500" /> Mark Exam
                   </Heading>
                   <Text fontSize="sm" color="gray.600" mb={4}>
-                    Téléchargez et corrigez des examens d'étudiants. Vous pouvez modifier les scores et valider les résultats finaux.
+                    Upload a pupil's PDF answer sheet and get it marked against the answer key. You can adjust any score before validating the final result.
                   </Text>
                   
                   <Heading size="sm" mb={3} display="flex" alignItems="center">
-                    <Icon as={FiBarChart2} mr={2} color="purple.500" /> Analyses
+                    <Icon as={FiBarChart2} mr={2} color="purple.500" /> Insights
                   </Heading>
                   <Text fontSize="sm" color="gray.600" mb={4}>
-                    Consultez des statistiques détaillées sur les performances des étudiants et obtenez des recommandations personnalisées.
+                    Review detailed statistics on pupil performance and get personalised recommendations.
                   </Text>
                 </Box>
                 
                 <Box>
                   <Heading size="sm" mb={3} display="flex" alignItems="center">
-                    <Icon as={FiFileText} mr={2} color="orange.500" /> Résultats
+                    <Icon as={FiFileText} mr={2} color="orange.500" /> Results
                   </Heading>
                   <Text fontSize="sm" color="gray.600" mb={4}>
-                    Accédez à la liste des examens et consultez les résultats détaillés pour chaque étudiant.
+                    Browse your exams and see each pupil's results.
                   </Text>
                   
                   <Heading size="sm" mb={3} display="flex" alignItems="center">
-                    <Icon as={FiUser} mr={2} color="teal.500" /> Profil
+                    <Icon as={FiUser} mr={2} color="teal.500" /> Profile
                   </Heading>
                   <Text fontSize="sm" color="gray.600" mb={4}>
-                    Gérez votre profil utilisateur et vos informations personnelles.
+                    View your account details.
                   </Text>
                   
                   <Heading size="sm" mb={3} display="flex" alignItems="center">
                     <Icon as={FiUpload} mr={2} color="red.500" /> Curriculum
                   </Heading>
                   <Text fontSize="sm" color="gray.600">
-                    Téléchargez et gérez les programmes d'études et les supports de cours.
+                    Upload the curriculum document that new exercises should follow.
                   </Text>
                 </Box>
               </SimpleGrid>
               
               <Box mt={6} p={4} bg="blue.50" borderRadius="md">
-                <Heading size="sm" mb={2} color="blue.600">Conseil d'utilisation:</Heading>
+                <Heading size="sm" mb={2} color="blue.600">Tip:</Heading>
                 <Text fontSize="sm">
-                  Pour commencer, utilisez le menu de navigation situé à gauche pour accéder aux différentes fonctionnalités. 
-                  Si vous souhaitez corriger un examen, cliquez sur "Corriger Examen" puis téléchargez le fichier PDF de l'étudiant.
+                  Use the menu on the left to move between sections.
+                  To mark an exam, click "Mark Exam" and upload the pupil's PDF answer sheet.
                 </Text>
               </Box>
             </Box>
@@ -1163,7 +1178,7 @@ const DashboardLayout = () => {
       {isLoading ? (
         <Flex height="100vh" width="100%" alignItems="center" justifyContent="center">
           <VStack spacing={4}>
-            <Text fontSize="xl">Chargement du tableau de bord...</Text>
+            <Text fontSize="xl">Loading dashboard...</Text>
             <Progress size="xs" isIndeterminate width="200px" colorScheme="blue" />
           </VStack>
         </Flex>

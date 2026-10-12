@@ -46,7 +46,7 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
       showLoginForm();
     } catch (error) {
       console.error("Login failed:", error.response?.data || error.message);
-      setError("Email ou mot de passe incorrect.");
+      setError("Incorrect email or password.");
     } finally {
       setIsLoading(false);
     }
@@ -80,10 +80,10 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
             color={textColor}
             mb={2}
           >
-            Bienvenue
+            Welcome back
           </Heading>
           <Text fontSize="md" color="gray.500" textAlign="center" mt={-4}>
-            Connectez-vous à votre compte
+            Sign in to your teacher account
           </Text>
           
           {error && (
@@ -111,7 +111,7 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="votre@email.com"
+                    placeholder="you@school.com"
                     required
                     autoComplete="email"
                     size="md"
@@ -122,7 +122,7 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
               </FormControl>
               
               <FormControl id="password" isRequired>
-                <FormLabel fontSize="sm">Mot de passe</FormLabel>
+                <FormLabel fontSize="sm">Password</FormLabel>
                 <InputGroup>
                   <InputLeftElement pointerEvents="none">
                     <FaLock color="gray.300" />
@@ -148,7 +148,7 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
                   size="lg"
                   fontSize="md"
                   isLoading={isLoading}
-                  loadingText="Connexion en cours..."
+                  loadingText="Signing in..."
                   borderRadius="md"
                   _hover={{
                     transform: "translateY(-2px)",
@@ -156,7 +156,7 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
                   }}
                   transition="all 0.2s"
                 >
-                  Se connecter
+                  Sign in
                 </Button>
                 
                 <Link 
@@ -168,7 +168,7 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
                   fontSize="md"
                   mt={2}
                 >
-                  Créer mon compte
+                  Create an account
                 </Link>
               </Stack>
             </Stack>

@@ -45,7 +45,7 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
         {lines.map((line, index) => {
           const content = cleanMarkdown(line.replace(/^###\s*/, ""));
 
-          if (line.startsWith("###") || content.startsWith("Titre :")) {
+          if (line.startsWith("###") || content.startsWith("Title:")) {
             return (
               <Heading key={index} size="md" color="blue.700" mt={index === 0 ? 0 : 3}>
                 {content}
@@ -53,7 +53,7 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
             );
           }
 
-          if (content.startsWith("Introduction :")) {
+          if (content.startsWith("Introduction:")) {
             return (
               <Box key={index} p={3} bg="blue.50" borderRadius="md">
                 <Text fontWeight="semibold" color="blue.800">
@@ -90,7 +90,7 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
             );
           }
 
-          if (content.startsWith("Réponse correcte")) {
+          if (content.startsWith("Correct answer")) {
             return (
               <Text
                 key={index}
@@ -132,13 +132,13 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
     setIsLoading(true);
 
     try {
-      // Ajout du message utilisateur localement
+      // Add the user message locally
       const userMessage = { sender: "user", text: userText };
 
       // Add user message immediately for better UX
       setMessages((prev) => [...prev, userMessage]);
 
-      // Appelez l'endpoint /chat/ pour obtenir la réponse
+      // Call the /chat/ endpoint to get the generated exercise
       const response = await api.post("/chat/", { message: userText });
       const botResponse = response.data.response;
       const botMessage = {
@@ -147,21 +147,21 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
         formattedText: formatBotResponse(botResponse)
       };
 
-      // Mise à jour de l'état des messages
+      // Update the message list
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      console.error("Erreur lors de l'envoi du message :", error);
+      console.error("Error while sending the message:", error);
       // Add error message to show to the user
       setError(
         error.response?.data?.detail ||
-        "Une erreur s'est produite lors de l'envoi du message. Veuillez réessayer."
+        "Something went wrong while sending your message. Please try again."
       );
       // Add error message as bot response
       setMessages((prev) => [
         ...prev,
         {
           sender: "bot",
-          text: "Désolé, je n'ai pas pu traiter votre demande. Veuillez réessayer.",
+          text: "Sorry, I could not process your request. Please try again.",
           isError: true
         }
       ]);
@@ -170,7 +170,7 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
     }
   };
 
-  // Récupération du profil utilisateur pour afficher le nom
+  // Fetch the user profile to show the teacher's name
   useEffect(() => {
     if (isAuthenticated) {
       setIsLoading(true);
@@ -178,8 +178,8 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
         .get("/me/")
         .then((res) => setUsername(res.data.nom))
         .catch((err) => {
-          console.error("Erreur /me :", err);
-          setError("Impossible de récupérer votre profil. Veuillez vous reconnecter.");
+          console.error("Error on /me:", err);
+          setError("Could not load your profile. Please sign in again.");
         })
         .finally(() => setIsLoading(false));
     }
@@ -196,10 +196,13 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
         onHome={handleHome}
       />
       <AppLayout>
-        <Heading>
-          Je suis un assistant IA qui génère des exercices de Maths en fonction du programme scolaire sélectionné.
-
+        <Heading size="lg" textAlign="center" maxW="container.md">
+          Create maths exercises that follow your curriculum
         </Heading>
+        <Text color="gray.600" textAlign="center" maxW="container.md">
+          Ask for a topic, a grade and a number of questions. EducAI writes a
+          multiple-choice quiz with its answer key and saves it, ready for marking.
+        </Text>
 
         {error && (
           <Box

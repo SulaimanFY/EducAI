@@ -79,7 +79,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("EDUCAI_TOKEN_EXPIRE_MINUTES", "60"))
 
 # ----------------------------
-# GESTION DES MOTS DE PASSE
+# PASSWORD HASHING
 # ----------------------------
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -93,7 +93,7 @@ def get_password_hash(password: str) -> str:
 
 
 # ----------------------------
-# CREATION DU TOKEN
+# TOKEN CREATION
 # ----------------------------
 def create_access_token(data: dict, expires_delta: timedelta) -> str:
     to_encode = data.copy()
@@ -103,7 +103,7 @@ def create_access_token(data: dict, expires_delta: timedelta) -> str:
 
 
 # ----------------------------
-# DEPENDANCE BD
+# DATABASE DEPENDENCY
 # ----------------------------
 def get_db():
     db = SessionLocal()
@@ -114,7 +114,7 @@ def get_db():
 
 
 # ----------------------------
-# RECUPERATION PROF PAR EMAIL
+# LOOK UP A TEACHER BY EMAIL
 # ----------------------------
 def get_professeur_by_email(db: Session, email: str) -> Optional[Professeur]:
     return db.query(Professeur).filter(Professeur.email == email).first()
@@ -148,7 +148,7 @@ class ResultatCreate(BaseModel):
 
 
 # -------------------------------------------------------
-# CLASSE CUSTOM POUR SAISIR L'EMAIL COMME 'username'
+# CUSTOM FORM THAT TAKES THE EMAIL AS 'username'
 # -------------------------------------------------------
 class OAuth2PasswordRequestFormEmail:
     def __init__(
@@ -167,12 +167,12 @@ class OAuth2PasswordRequestFormEmail:
 
 
 # ------------------------------------------------------
-# CHAMP DE SECURITE : HTTPBearer
+# SECURITY SCHEME: HTTPBearer
 # ------------------------------------------------------
 bearer_scheme = HTTPBearer()
 
 
-# ======= DÉPENDANCE POUR PARSER JSON OU FORMDATA =======
+# ======= DEPENDENCIES THAT ACCEPT JSON OR FORM DATA =======
 async def parse_professeur(request: Request) -> ProfesseurCreate:
     ct = request.headers.get("Content-Type", "")
     if "application/json" in ct:
@@ -220,7 +220,7 @@ async def parse_chatinput(request: Request) -> ChatInput:
 
 
 # ======================================================
-# AUTHENTIFICATION
+# AUTHENTICATION
 # ======================================================
 @app.post("/register/")
 async def register(
@@ -228,11 +228,11 @@ async def register(
     db: Session = Depends(get_db),
 ):
     """
-    Inscription d'un nouveau Professeur dans la base.
+    Register a new teacher account.
     """
     existing = get_professeur_by_email(db, professeur.email)
     if existing:
-        raise HTTPException(status_code=400, detail="Email déjà utilisé")
+        raise HTTPException(status_code=400, detail="This email is already registered")
 
     hashed_password = get_password_hash(professeur.mot_de_passe)
     new_prof = Professeur(
@@ -243,7 +243,7 @@ async def register(
     db.add(new_prof)
     db.commit()
     db.refresh(new_prof)
-    return {"message": "Compte créé avec succès", "id": new_prof.id}
+    return {"message": "Account created successfully", "id": new_prof.id}
 
 
 @app.post("/login/", response_model=Token)
@@ -252,7 +252,7 @@ def login(
 ):
     prof = get_professeur_by_email(db, form_data.username)
     if not prof or not verify_password(form_data.password, prof.mot_de_passe):
-        raise HTTPException(status_code=400, detail="Email ou mot de passe incorrect")
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
 
     access_token = create_access_token(
         data={"sub": prof.email, "id": prof.id, "role": "professeur"},
@@ -271,20 +271,20 @@ def get_current_professeur(
         email: str = payload.get("sub")
         if not email:
             raise HTTPException(
-                status_code=401, detail="Token invalide (sub manquant)."
+                status_code=401, detail="Invalid token (missing subject)."
             )
         prof = get_professeur_by_email(db, email)
         if not prof:
-            raise HTTPException(status_code=401, detail="Utilisateur introuvable.")
+            raise HTTPException(status_code=401, detail="User not found.")
         return prof
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expiré.")
+        raise HTTPException(status_code=401, detail="Token expired.")
     except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Token invalide.")
+        raise HTTPException(status_code=401, detail="Invalid token.")
 
 
 # ======================================================
-# CRUD PROFESSEUR, EXERCICE, RESULTAT, etc.
+# TEACHER, EXERCISE AND RESULT ENDPOINTS
 # ======================================================
 @app.get("/me/")
 def read_users_me(current_user: Professeur = Depends(get_current_professeur)):
@@ -305,14 +305,14 @@ async def submit_copy(
     current_user: Professeur = Depends(get_current_professeur),
     db: Session = Depends(get_db),
 ):
-    """Analyse une copie élève (PDF) et renvoie une correction préliminaire.
+    """Read a pupil's answer sheet (PDF) and return a first marking.
 
-    Réponse :
-    - ``correct_count`` : nombre de bonnes réponses détectées automatiquement.
-    - ``total_questions`` : nombre de questions de la soumission.
-    - ``percentage`` : pourcentage de réussite estimé (0–100).
-    - ``submission_data`` : réponses de l'élève question par question.
-    - ``correct_answers`` : bonne réponse attendue pour chaque question.
+    Response:
+    - ``correct_count``: number of correct answers found automatically.
+    - ``total_questions``: number of questions in the submission.
+    - ``percentage``: estimated success rate (0-100).
+    - ``submission_data``: the pupil's answer to each question.
+    - ``correct_answers``: the expected answer to each question.
     """
     pdf_bytes = await pdf.read()
     text = extract_text_from_pdf_from_bytes(pdf_bytes)
@@ -323,7 +323,7 @@ async def submit_copy(
     except (TypeError, ValueError):
         raise HTTPException(
             status_code=400,
-            detail="Le PDF ne contient pas un id_eleve/id_exercice valide.",
+            detail="The PDF does not contain a valid pupil ID and exercise ID.",
         )
 
     original_exercice_id = id_exercice
@@ -339,7 +339,7 @@ async def submit_copy(
     if not has_inserted:
         raise HTTPException(
             status_code=500,
-            detail="L'insertion de la soumission a échoué. Vérifie le format du PDF.",
+            detail="Could not save the submission. Please check the PDF format.",
         )
 
     correct_count = get_correct_answers_count(
@@ -364,8 +364,8 @@ async def submit_copy(
     }
     if original_exercice_id != id_exercice:
         response["warning"] = (
-            f"L'exercice {original_exercice_id} du PDF n'existe plus. "
-            f"La correction a été associée à l'exercice {id_exercice}."
+            f"Exercise {original_exercice_id} from the PDF no longer exists. "
+            f"The marking was linked to exercise {id_exercice}."
         )
     return response
 
@@ -379,16 +379,30 @@ async def chatbot(
 ):
     user_message = chat.message.strip()
     if not user_message:
-        raise HTTPException(status_code=400, detail="Le message ne peut pas être vide.")
+        raise HTTPException(status_code=400, detail="The message cannot be empty.")
 
-    qcm_payload = invoke_generate_qcm_agent(user_message, current_user.id, db)
+    try:
+        qcm_payload = invoke_generate_qcm_agent(user_message, current_user.id, db)
+    except ValueError:
+        raise HTTPException(
+            status_code=502,
+            detail="The quiz could not be generated. Please try again with a more precise request.",
+        )
+
+    # Off-topic requests come back without questions: answer, but save nothing.
+    if not qcm_payload.get("qcm"):
+        return {"response": qcm_payload.get("contenu", ""), "exercise_id": None}
+
     new_exercise = insert_qcm_data(qcm_payload, current_user.id, db)
     if not new_exercise:
         raise HTTPException(
             status_code=500,
-            detail="La génération du QCM a échoué. Réessaie avec une consigne plus précise.",
+            detail="The quiz could not be generated. Please try again with a more precise request.",
         )
-    return {"response": format_qcm_data(qcm_payload, new_exercise)}
+    return {
+        "response": format_qcm_data(qcm_payload, new_exercise),
+        "exercise_id": new_exercise.id,
+    }
 
 
 # ----------------------------
@@ -403,7 +417,7 @@ async def get_student_recommendations(
     current_user: Professeur = Depends(get_current_professeur),
     db=Depends(get_db),
 ):
-    """Génère des recommandations pour un élève, soit global soit pour un exercice spécifique"""
+    """Generate recommendations for a pupil, across all exercises or for one exercise."""
 
     # Verify student access using utility function
     if not verify_student_access(db, eleve_id, current_user.id):
@@ -451,14 +465,14 @@ async def save_submission_result(
     current_user: Professeur = Depends(get_current_professeur),
     db: Session = Depends(get_db),
 ):
-    """Enregistre le résultat final corrigé par le professeur.
+    """Save the final result validated by the teacher.
 
-    ``score`` est le **nombre de bonnes réponses** validées par le professeur
-    (entier compris entre 0 et le nombre total de questions).
+    ``score`` is the **number of correct answers** validated by the teacher
+    (an integer between 0 and the total number of questions).
     """
     if score < 0:
         raise HTTPException(
-            status_code=400, detail="Le score ne peut pas être négatif."
+            status_code=400, detail="The score cannot be negative."
         )
     try:
         result_id = save_student_result(
@@ -569,7 +583,7 @@ async def update_curriculum(
     """Upload a curriculum PDF and persist the metadata for the professor."""
     pdf_bytes = await pdf.read()
     if not pdf_bytes:
-        raise HTTPException(status_code=400, detail="Le PDF est vide.")
+        raise HTTPException(status_code=400, detail="The PDF is empty.")
 
     program_folder = "program"
     os.makedirs(program_folder, exist_ok=True)

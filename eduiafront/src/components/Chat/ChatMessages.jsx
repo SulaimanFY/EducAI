@@ -44,7 +44,7 @@ const ChatMessages = ({ messages, onCopy }) => {
           
           {message.isError && (
             <Text color="red.500" mt={2} fontStyle="italic">
-              Une erreur s'est produite
+              Something went wrong
             </Text>
           )}
         </Box>

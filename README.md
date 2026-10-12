@@ -1,364 +1,194 @@
-# EducAI — AI-Powered Pedagogical Assistance Platform
+# EducAI: AI teaching assistant for primary maths
 
-## Overview
-**EducAI** is a web application that uses artificial intelligence to help teachers generate and automatically correct mathematics exercises.
+EducAI is a web app that helps primary school teachers create maths exercises and mark pupils' answer sheets with AI.
+
+A teacher describes the exercise they need in plain English. EducAI writes a multiple-choice quiz with its answer key, following the curriculum, and saves it. When pupils hand in their answer sheets as PDFs, EducAI reads each sheet, marks it against the answer key and shows the result question by question. The teacher can adjust any mark before validating it. EducAI then writes personalised recommendations for each pupil from their results.
 
 It combines:
 
-- **NLP & LLMs** — exercise generation and rewriting from natural-language prompts and curriculum documents, powered by OpenAI GPT.
-- **Automated exam correction** — parsing structured PDF answer sheets, extracting student responses and computing scores (global score, per-question results, success rate).
-- **Educational analytics** — dashboards and statistics on students, exercises and performance.
-- **Personalized pedagogical recommendations** — AI-generated feedback and suggestions tailored to each student's strengths and weaknesses.
-- A modern **API + frontend** architecture — FastAPI backend, React + Chakra UI frontend, JWT authentication, and Docker / Docker Compose for deployment.
+- **LLMs and prompt engineering**: exercise generation from natural-language requests with OpenAI GPT, with a worked answer for every question so the answer key stays correct.
+- **Retrieval-augmented generation (RAG)**: the curriculum PDF (the bundled one or the teacher's own) is split, embedded and searched with FAISS, so exercises follow the right programme.
+- **Document AI**: answer sheets are read from PDF and turned into structured answers, then marked against the stored answer key.
+- **Learning analytics**: dashboard metrics, per-exam results and AI recommendations based only on each pupil's actual scores.
+- **Full-stack architecture**: FastAPI backend, React and Chakra UI frontend, JWT authentication, SQLite, Docker Compose.
 
-This project was developed by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTARA** as a final-year **Master of Engineering** project (2025). We chose the topic ourselves. Full technical documentation and a user guide are available in French.
+EducAI was built by **Sulaiman FAYYAZ** and **Kamul ALI NASSOMA WATTARA** as their final-year **Master of Engineering** project (2025). They chose the topic themselves. The app was first written in French for French primary teachers (Cycle 2: CP, CE1, CE2, ages 6 to 8) and has since been translated to English.
 
 ---
 
 ## Screenshots
 
-#### 1. AI chat interface
+#### 1. Ask for an exercise
 
-<img width="1912" height="931" alt="image" src="https://github.com/user-attachments/assets/b98ba6f8-9ad0-4129-b969-dd20e6286cfa" />
+![Exercise chat](docs/screenshots/01-chat.png)
 
-*AI-powered chat interface allowing teachers to generate math exercises in French, aligned with the Cycle 2 curriculum.*
+*The teacher asks for a quiz in plain English: topic, grade and number of questions.*
 
----
+#### 2. Generated quiz with its answer key
 
-#### 2. Generated math exercise
+![Generated quiz](docs/screenshots/02-generated-quiz.png)
 
-<img width="959" height="469" alt="image" src="https://github.com/user-attachments/assets/625348c1-9443-4078-ab7d-8374bce63eec" />
-
-
-*Example of an AI-generated math exercise with structured questions and automatically provided correct answers.*
-
----
+*EducAI returns a numbered exercise with four options per question and the correct answer, and saves it for marking.*
 
 #### 3. Teacher dashboard
 
-<img width="951" height="467" alt="image" src="https://github.com/user-attachments/assets/0b85be51-2837-4264-8712-0215d27fd21b" />
+![Dashboard](docs/screenshots/03-dashboard.png)
 
+*The dashboard gives access to marking, insights, results, the profile and the curriculum upload.*
 
+#### 4. Marking an answer sheet
 
-*Teacher dashboard giving access to exam correction, performance analytics, stored results, and curriculum upload.*
+![Marking](docs/screenshots/04-marking.png)
 
----
+*The teacher uploads a pupil's PDF answer sheet. EducAI reads it and marks every answer against the key; the teacher can edit any mark, then validates the result.*
 
-#### 4. Exam correction workflow
+#### 5. Personalised recommendations
 
-<img width="941" height="464" alt="image" src="https://github.com/user-attachments/assets/9b53e789-549f-4e97-8a25-33d6c2f3bc58" />
+![Recommendations](docs/screenshots/05-recommendations.png)
 
+*Strengths, areas to improve, recommendations and suggested resources, based only on the pupil's actual results.*
 
+#### 6. Exam results
 
-*Exam correction interface where teachers upload student exam PDFs for automatic analysis and grading.*
+![Results](docs/screenshots/06-results.png)
 
----
-
-#### 5. Corrected exam view
-
-<img width="944" height="461" alt="image" src="https://github.com/user-attachments/assets/ee386433-6af4-41b0-8b97-990c38eaf793" />
-
-
-
-
-*Automatically corrected exam showing validated scores, per-question results, and feedback generated by the system.*
+*Every exam and each pupil's score, kept over time.*
 
 ---
 
-#### 6. Student performance analytics
+## Key features
 
-<img width="947" height="461" alt="image" src="https://github.com/user-attachments/assets/9e5ef4a3-b976-42b4-8e68-90f2e8fd71d5" />
+### Exercise generation
+Teachers ask for exercises in the chat on the home page. They can specify:
+- the grade (Grades 1 to 3; CP, CE1, CE2 in the French system)
+- the topic (numbers, addition, subtraction, multiplication, money, time, measurement, geometry, logic puzzles)
+- the number of questions and the difficulty
 
+Each question has four options and exactly one correct answer. The model writes the working for every question before choosing the correct option, and malformed questions are dropped before saving. Requests that are not about primary maths get a polite refusal and nothing is saved.
 
+### Marking pupils' answer sheets (PDF)
+- An answer sheet gives the pupil's name and ID, the exercise ID, the date and one letter per question (see `backend/make_answer_sheet.py` to create one).
+- EducAI extracts the answers, compares them with the stored answer key and computes the score, the per-question result and the success rate.
+- The teacher can change any mark (0 or 1) before validating. Validated results are saved for that pupil.
 
-*Student performance analytics with personalized recommendations to highlight strengths and learning gaps.*
+### Dashboard and analytics
+- Average score and number of exams marked, compared with the previous month
+- List of exams with each pupil's result
 
----
+### Personalised recommendations
+For each pupil, across all exercises or for one exercise:
+- strengths actually shown by the results
+- areas to improve
+- teaching recommendations
+- suggested resources and exercises
 
-#### 7. List of corrected exams
-
-<img width="950" height="467" alt="image" src="https://github.com/user-attachments/assets/22559674-0623-4a40-926b-97c9f79034e0" />
-
-
-
-*List of corrected exams with saved results, enabling tracking of student performance over time.*
-
-## Key Features
-
-### AI-Based Exercise Generation
-EducAI can generate mathematics exercises from natural-language prompts or based on uploaded curriculum documents. Supported exercise types include:
-- Arithmetic exercises
-- Word problems
-- Geometry exercises
-- Multiple-choice questions (QCM)
-
-Teachers can specify:
-- School level (CP, CE1, CE2)
-- Exercise type (QCM, problems, short questions)
-- Number of questions
-- Difficulty level
-- Topic or theme
-
-All interactions are done through an interactive AI chat interface on the home page.
-
-### Automatic Correction of Student Copies (PDF)
-EducAI can automatically correct student answer sheets submitted as PDF files:
-- PDFs must follow a simple structure (student ID, exercise ID, date, list of answers).
-- The system extracts answers, compares them with expected solutions, and computes:
-  - Global score
-  - Detailed list of correct and incorrect answers
-  - Success percentage
-
-Teachers can manually edit each answer’s score (0 or 1) before validating. Once validated, results are saved and associated with the corresponding student.
-
-### Interactive Chat Interface
-The main page provides an AI chat:
-- Message input area at the bottom
-- Conversation history in the main panel
-- Navigation bar to move between sections
-
-Through this chat, teachers can generate new exercises, refine existing ones, or adapt content to a particular curriculum or level.
-
-### Dashboard and Analytics
-The dashboard offers an overview of activity and performance:
-- Total number of students
-- Number of created exercises
-- Average student performance
-- Recently created exercises
-
-From the sidebar, teachers can access:
-- Dashboard — overview and statistics
-- Correct Exam — upload and correct PDF copies
-- Analyses — detailed statistics and recommendations
-- Results — list of exams and results
-- Profile — account information
-- Curriculum — upload of school programs
-
-### Personalized Student Recommendations
-For each student, EducAI can generate personalized recommendations to guide learning:
-- Strengths (skills already mastered)
-- Points to improve (skills requiring more work)
-- Pedagogical advice
-- Suggestions for additional exercises and learning resources
-
-These recommendations can be shared with students or parents and used to adapt teaching strategies.
+### Curriculum upload
+Teachers can upload their own curriculum PDF. New exercises are then generated from the most relevant passages of that document. Without an upload, EducAI uses the bundled curriculum (`backend/program/cycle2_maths.pdf`, the French Cycle 2 maths programme).
 
 ---
 
-## System Architecture
-EducAI follows a classic client–server architecture with a clear separation of concerns between frontend, backend, AI services, and the database.
+## Architecture
 
-High-level flow:
-1. The user interacts with the **React** frontend.
-2. The frontend sends HTTP requests to the **FastAPI** backend.
-3. The backend calls **OpenAI GPT** for exercise generation, correction, and recommendations when needed.
-4. Data (users, exercises, results, etc.) is persisted in a **SQLite** database.
-5. The backend sends responses back to the frontend, which updates the user interface.
+1. The teacher uses the **React** frontend.
+2. The frontend calls the **FastAPI** backend over HTTP with a JWT.
+3. The backend calls **OpenAI GPT** (through LangChain) to generate exercises, read answer sheets and write recommendations, and **OpenAI embeddings + FAISS** to search the curriculum.
+4. Teachers, pupils, exercises, answers and results are stored in **SQLite** with SQLAlchemy.
 
-### Main Technologies
-- **Backend:** Python / FastAPI
-- **Frontend:** React (JavaScript) with Chakra UI
-- **Database:** SQLite
-- **AI:** OpenAI GPT models (via OpenAI API)
-- **Containerization:** Docker and Docker Compose
+| Layer | Technology |
+| --- | --- |
+| Backend | Python, FastAPI, SQLAlchemy, LangChain |
+| AI | OpenAI GPT (default `gpt-4o`, set `OPENAI_MODEL` to change), OpenAI embeddings, FAISS |
+| PDF | PyMuPDF, pypdf |
+| Frontend | React, Chakra UI, Vite |
+| Auth | JWT, bcrypt |
+| Deployment | Docker, Docker Compose, nginx |
 
----
+### Backend (`backend/`)
+- `server.py`: API routes and authentication
+- `llm_agent.py`: prompts and calls to the LLM (exercise generation, answer-sheet reading, recommendations) and curriculum retrieval
+- `utils.py`: database queries, PDF text extraction, scoring
+- `models.py`: SQLAlchemy models (table and column names are in French, see `database model definition/MCD.md`)
+- `make_answer_sheet.py`: creates a sample answer sheet PDF
+- `program/`: curriculum PDFs
 
-## Backend Structure
-The backend lives in the `backend/` directory and is implemented with FastAPI and SQLAlchemy.
+### Frontend (`eduiafront/`)
+- `src/pages/Home.jsx`: exercise chat
+- `src/components/Layout/DashboardLayout.jsx`: dashboard, marking, insights, results
+- `src/components/Auth/`: sign-in and registration
+- `src/services/api.js`: API client
 
-Typical structure:
-- `server.py` — API entrypoint, route definitions, middleware, authentication
-- `database.py` — database connection and SQLAlchemy session management
-- `models.py` — ORM models for all entities (Professors, Students, Programs, Exercises, QCM, QCM responses, Submissions, Results, etc.)
-- `llm_agent.py` — integration with the OpenAI API (generation of exercises, analysis of student copies, recommendation generation)
-- `utils.py` — utility functions such as PDF text extraction and data transformations
-- `submissions/` — directory used to store uploaded student PDF copies
-- `uploads/` — directory used to store uploaded curriculum files
-- `requirements.txt` — Python dependencies
-- `Dockerfile` — container configuration for the backend service
-
-### AI Components
-Key AI helper functions:
-- `invoke_generate_qcm_agent` — generates exercises and QCM from prompts and curriculum
-- `invoke_analyze_student_copy_agent` — analyses student submissions and computes scores
-- `invoke_llm_recommendation_agent` — produces student-specific recommendations
-
-These functions encapsulate prompt engineering and communication with OpenAI GPT.
+### Main endpoints
+- `POST /register/`, `POST /login/`, `GET /me/`
+- `POST /chat/`: generate an exercise from a request
+- `POST /correct-exam/`: read and mark an answer sheet PDF
+- `POST /save-result/`: save the validated score
+- `POST /update_curriculum/`: upload a curriculum PDF
+- `GET /metrics`, `GET /students`, `GET /exercises`, `GET /exams`, `GET /exam-results/{id}`
+- `GET /recommendations/student/{id}`: recommendations for a pupil
 
 ---
 
-## Frontend Structure
-The frontend is built with React and Chakra UI in the `eduiafront/` directory.
+## Running EducAI
 
-Typical structure:
-- `src/assets/` — images and icons
-- `src/Auth/` — authentication components (login, registration)
-- `src/Chat/` — chat interface with the AI
-- `src/Layout/` — dashboard layout components
-- `src/common/` — shared UI components
-- `src/pages/` — main views (home, dashboard, results, etc.)
-- `src/services/` — HTTP service wrappers (Axios) for calling the FastAPI backend
-- `App.jsx` — root component
-- `main.jsx` — application entrypoint
-- `public/` — static assets
-- `package.json` — JavaScript dependencies
-- `Dockerfile` — container configuration for the frontend
+### With Docker (recommended)
+1. Install Docker and Docker Compose.
+2. Create a `.env` file at the project root with `OPENAI_API_KEY=sk-...` (optionally `EDUCAI_JWT_SECRET` and `OPENAI_MODEL`).
+3. Run:
+   ```bash
+   docker compose up --build
+   ```
+4. Open http://localhost:3000 (the API runs on http://localhost:8000, docs at http://localhost:8000/docs).
 
-The UI is divided into:
-- Home / Chat — main chat with the AI
-- Dashboard — statistics and KPIs
-- Correct Exam — upload and correction workflow
-- Analyses — detailed performance and recommendations
-- Results — list of exams and student scores
-- Curriculum — upload area for school programs
-- Profile — user account information
+### Without Docker
+Backend:
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export OPENAI_API_KEY=sk-...
+uvicorn server:app --reload
+```
 
----
+Frontend:
+```bash
+cd eduiafront
+npm install
+npm run dev
+```
 
-## Data Model
-EducAI uses a relational model implemented with SQLAlchemy.
+### Try the whole flow
+1. Create an account and sign in.
+2. In the chat, ask for example: *"5 questions on addition and subtraction within 100 for Grade 2, set at a zoo"*. Note the exercise number.
+3. Create an answer sheet for that exercise:
+   ```bash
+   cd backend
+   python make_answer_sheet.py --exercise 1 --pupil-id 7 --name "Emma Wilson" --answers A C A A B --out samples/emma.pdf
+   ```
+4. In the dashboard, open **Mark Exam**, upload the PDF, check the marks and click **Validate results**.
+5. Open **Insights**, choose the pupil and click **Get recommendations**.
 
-Simplified relationships:
-- One **Professor** can create many **Exercises**
-- Each **Exercise** can contain multiple **QCM** questions, each with multiple **QCMResponse** options
-- One **Student** can have many **Submissions**, each producing multiple **Result** records
-- **Program** (curriculum) links exercises to a specific school program
-
-Main tables:
-- `Professor` — teacher accounts
-- `Student` — student information
-- `Program` — school program and curriculum information
-- `Exercise` — generated or saved exercises
-- `QCM` and `QCMResponse` — multiple-choice questions and answer options
-- `Submission` — student exam submissions (linked to PDFs)
-- `Result` — detailed grading results
-
----
-
-## API Overview
-The FastAPI backend exposes REST endpoints organized by resource. Examples:
-- `POST /register/` — teacher registration
-- `POST /login/` — authentication and JWT issuance
-- `GET /me/` — fetch current authenticated user profile
-- `POST /chat/` — send a prompt to the AI chat for exercise generation
-- `POST /correct-exam/` — upload and correct a student PDF exam
-- `POST /save-result/` — save corrected exam results
-- `POST /upload-curriculum/` — upload a curriculum/program file
-- `GET /students` — list registered or detected students
-- `GET /exercises` — list created exercises
-- `GET /metrics` — fetch dashboard statistics
-- `GET /exams` — list exams
-- `GET /recommendations/student/{id}` — generate and return recommendations for a student
-
-### Authentication
-Authentication is based on **JSON Web Tokens (JWT)**:
-- Tokens are sent as Bearer tokens in the `Authorization` header
-- Token lifetime is typically 60 minutes
-- Only authenticated users can access teacher-specific resources
+A step-by-step guide is in [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 
 ---
 
 ## Security
-Security measures implemented in EducAI include:
-- Password hashing using bcrypt
-- JWT-based authentication and authorization for all protected endpoints
-- Input validation with Pydantic models to guard against malformed data
-- Escaping and safe rendering on the frontend side
-- Minimal storage of personal data and separation of sensitive information to align with privacy best practices
+- Passwords hashed with bcrypt
+- JWT authentication on every teacher endpoint (60-minute tokens by default)
+- Teachers can only see their own exercises, pupils and results
+- Input validation with Pydantic
 
----
+## Known limitations
+- SQLite is fine for a single school but not for many concurrent users.
+- Answer sheets must be typed PDFs in the format above; handwriting is not read.
+- The app depends on the OpenAI API (quotas, latency, availability).
+- Automated tests are not complete yet.
 
-## Deployment with Docker
-EducAI is designed to be run via Docker and Docker Compose.
-
-There are two main services:
-- `api` — backend FastAPI service, exposed on port `8000`
-- `frontend` — React application, served on port `3000`
-
-A typical `docker-compose.yml` (simplified):
-- Builds the backend from `./backend` and mounts the backend directory
-- Builds the frontend from `./eduiafront` and exposes it via an Nginx or static server container
-- Passes environment variables such as `OPENAI_API_KEY` to the backend
-
-### Running the Application
-1. Make sure Docker and Docker Compose are installed.
-2. Set the `OPENAI_API_KEY` variable in an `.env` file or your environment.
-3. From the project root, run:
-   ```bash
-   docker-compose up --build
-   ```
-4. Open your browser at:
-   - Frontend: `http://localhost:3000`
-   - Backend API (for testing): `http://localhost:8000`
-
----
-
-## Known Limitations and Technical Considerations
-- SQLite is used for simplicity but is not ideal for high-concurrency production environments.
-- The deployment currently targets a single instance (no built-in high availability).
-- The system depends on OpenAI API limits (quotas, latency, availability).
-- Automated tests exist but are not yet fully comprehensive.
-
-Performance considerations:
-- Indexes can be used to optimize frequent queries.
-- The frontend uses lazy loading to improve responsiveness.
-
----
-
-## Possible Future Improvements
-Planned or potential enhancements:
-- Migrate from SQLite to PostgreSQL for better scalability and robustness.
-- Implement a richer automated test suite (unit, integration, end-to-end).
-- Add caching for frequently repeated AI queries.
-- Use a dedicated object store (e.g., S3/MinIO) for file storage.
-- Introduce WebSockets for real-time updates (live corrections, notifications).
-
----
-
-## Installation (Development Environment)
-Although Docker is the recommended way to run EducAI, a classic development setup typically follows this pattern.
-
-### Backend
-1. Create and activate a Python virtual environment.
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Set the `OPENAI_API_KEY` environment variable.
-4. Run the FastAPI app:
-   ```bash
-   uvicorn server:app --reload
-   ```
-
-### Frontend
-1. Navigate to the `eduiafront` directory.
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-   or
-   ```bash
-   yarn
-   ```
-3. Run the dev server:
-   ```bash
-   npm run dev
-   ```
-   or
-   ```bash
-   yarn dev
-   ```
-
-Exact commands may vary depending on repository configuration; Docker remains the reference setup.
-
----
-
-## Target Users
-EducAI is aimed at:
-- Teachers who want to quickly generate customized mathematics exercises
-- Educators who need automatic correction of student copies
-- Users who want analytics and recommendations to adapt teaching strategies
+## Possible improvements
+- PostgreSQL instead of SQLite
+- Handwritten answer sheets (vision model)
+- Printable answer sheets generated from each exercise
+- Unit, integration and end-to-end tests
+- Object storage for uploaded PDFs
 
 ---
 

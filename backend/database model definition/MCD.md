@@ -1,67 +1,69 @@
-# Modèle Conceptuel de Données (MCD)
+# Conceptual Data Model
 
-## Entités et leurs attributs :
+Table and column names in the code are in French (for example `eleves` for pupils and `soumissions` for submissions). This page gives each entity in English with its table name.
 
-1. **Professeur**
-   - ID Professeur (PK)
-   - Nom
+## Entities and attributes
+
+1. **Teacher** (`professeurs`)
+   - Teacher ID (PK)
+   - Name
    - Email
-   - Mot de passe
+   - Password (hashed)
 
-2. **Programme**
-   - ID Programme (PK)
-   - Nom
+2. **Curriculum** (`programmes`)
+   - Curriculum ID (PK)
+   - Name
    - Description
-   - ID Professeur (FK)
-   - File Path
+   - Teacher ID (FK)
+   - File path
 
-3. **Exercice**
-   - ID Exercice (PK)
-   - Titre
-   - Contenu
-   - ID Professeur (FK)
-   - ID Programme (FK)
+3. **Exercise** (`exercices`)
+   - Exercise ID (PK)
+   - Title
+   - Content
+   - Teacher ID (FK)
+   - Curriculum ID (FK)
 
-4. **QCM**
-   - ID QCM (PK)
-   - Exercice QCM ID
-   - Question
-   - ID Exercice (FK)
+4. **Multiple-choice question** (`qcms`)
+   - Question ID (PK)
+   - Question number within the exercise (Q1, Q2, ...)
+   - Question text
+   - Exercise ID (FK)
 
-5. **QCM Réponse**
-   - ID QCM Réponse (PK)
-   - Texte
-   - Est Correct (booléen)
-   - Lettre
-   - ID QCM (FK)
+5. **Answer option** (`qcm_reponses`)
+   - Option ID (PK)
+   - Text
+   - Is correct (boolean)
+   - Letter (A to D)
+   - Question ID (FK)
 
-6. **Élève**
-   - ID Élève (PK)
-   - Nom
+6. **Pupil** (`eleves`)
+   - Pupil ID (PK)
+   - Name
    - Email
-   - Mot de passe
+   - Password
 
-7. **Soumission**
-   - ID Soumission (PK)
-   - Date de soumission
+7. **Submission** (`soumissions`)
+   - Submission ID (PK)
+   - Submission date
    - Question
    - Answer
-   - ID Élève (FK)
-   - ID Exercice (FK)
+   - Pupil ID (FK)
+   - Exercise ID (FK)
 
-8. **Résultat**
-   - ID Résultat (PK)
-   - Score
-   - ID Élève (FK)
-   - ID Exercice (FK)
+8. **Result** (`resultats`)
+   - Result ID (PK)
+   - Score (number of correct answers)
+   - Pupil ID (FK)
+   - Exercise ID (FK)
 
-## Associations :
-- Un **professeur** crée plusieurs **exercices** et **programmes**
-- Un **programme** appartient à un **professeur** et contient plusieurs **exercices**
-- Un **exercice** appartient à un **programme** et à un **professeur**
-- Un **exercice** contient plusieurs **QCM**
-- Un **QCM** possède plusieurs **QCM Réponses**, dont une ou plusieurs correctes
-- Un **élève** soumet plusieurs **soumissions** pour différents **exercices**
-- Un **élève** obtient plusieurs **résultats** pour différents **exercices**
+## Relationships
+- A **teacher** creates many **exercises** and **curricula**.
+- A **curriculum** belongs to one **teacher** and contains many **exercises**.
+- An **exercise** belongs to one **curriculum** and one **teacher**.
+- An **exercise** contains many **multiple-choice questions**.
+- A **question** has several **answer options**, one of which is correct.
+- A **pupil** makes many **submissions** for different **exercises**.
+- A **pupil** gets many **results** for different **exercises**.
 
-Ce modèle conceptuel permet une gestion efficace des exercices de mathématiques sous forme de QCM et assure un suivi des performances des élèves. 📊
+This model supports multiple-choice maths exercises and tracks each pupil's results over time.
