@@ -116,7 +116,7 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
                     autoComplete="email"
                     size="md"
                     borderRadius="md"
-                    focusBorderColor="blue.400"
+                    focusBorderColor="brand.400"
                   />
                 </InputGroup>
               </FormControl>
@@ -136,7 +136,7 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
                     autoComplete="current-password"
                     size="md"
                     borderRadius="md"
-                    focusBorderColor="blue.400"
+                    focusBorderColor="brand.400"
                   />
                 </InputGroup>
               </FormControl>
@@ -144,7 +144,7 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
               <Stack spacing={4} pt={4}>
                 <Button
                   type="submit"
-                  colorScheme="blue"
+                  colorScheme="brand"
                   size="lg"
                   fontSize="md"
                   isLoading={isLoading}
@@ -162,8 +162,8 @@ const LoginForm = ({ showLoginForm = () => {}, setIsAuthenticated }) => {
                 <Link 
                   href="/register" 
                   textAlign="center" 
-                  color="blue.500" 
-                  _hover={{ textDecoration: "none", color: "blue.600" }}
+                  color="brand.600" 
+                  _hover={{ textDecoration: "none", color: "brand.700" }}
                   fontWeight="medium"
                   fontSize="md"
                   mt={2}

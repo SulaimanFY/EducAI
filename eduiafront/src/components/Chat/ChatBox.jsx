@@ -1,64 +1,72 @@
-import { Flex, IconButton, InputGroup, Textarea, Spinner } from "@chakra-ui/react";
-import { useState } from "react";
+import { Box, Flex, IconButton, Spinner, Text, Textarea } from "@chakra-ui/react";
 import { FaPaperPlane } from "react-icons/fa";
 
-const ChatBox = ({ showLoginForm = () => { }, onSubmit, isAuthenticated, isLoading }) => {
-  const [inputValue, setInputValue] = useState("");
-
-  const handleInputChange = (e) => {
-    setInputValue(e.target.value);
-  };
-
-  const handleSubmit = () => {
-    if (inputValue.trim()) {
-      onSubmit(inputValue); // hand the message to the parent page
-      setInputValue(""); // Clear input field after submission
+const ChatBox = ({
+  value,
+  onChange,
+  showLoginForm = () => {},
+  onSubmit,
+  isAuthenticated,
+  isLoading,
+}) => {
+  const submit = () => {
+    if (!isAuthenticated) {
+      showLoginForm();
+      return;
+    }
+    if (value.trim() && !isLoading) {
+      onSubmit(value.trim()); // hand the message to the parent page
+      onChange("");
     }
   };
 
-  const handleButtonClick = () => {
-    if (!isAuthenticated) {
-      showLoginForm();
-    } else {
-      handleSubmit();
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submit();
     }
   };
 
   return (
-    <Flex as="form" mt="4" width="container.lg" position="relative">
-      <InputGroup size="md">
+    <Box
+      bg="white"
+      borderWidth="1px"
+      borderColor="gray.200"
+      borderRadius="2xl"
+      boxShadow="0 8px 30px rgba(15, 23, 42, 0.08)"
+      p={2}
+    >
+      <Flex align="flex-end" gap={2}>
         <Textarea
+          data-testid="chat-input"
           placeholder="Describe the exercise you need, e.g. 5 questions on addition for Grade 2"
-          value={inputValue}
-          onChange={handleInputChange}
-          pr="3rem"
-          disabled={isLoading}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={handleKeyDown}
+          isDisabled={isLoading}
+          variant="unstyled"
+          resize="none"
+          rows={2}
+          px={3}
+          py={2}
+          fontSize="md"
         />
-        {isLoading ? (
-          <Spinner
-            position="absolute"
-            bottom="12px"
-            right="12px"
-            size="sm"
-            color="teal.500"
-          />
-        ) : (
-          <IconButton
-            aria-label="Send message"
-            icon={<FaPaperPlane />}
-            colorScheme="teal"
-            onClick={handleButtonClick}
-            isDisabled={!inputValue.trim() || isLoading}
-            position="absolute"
-            bottom="8px"
-            right="8px"
-            size="sm"
-            cursor="pointer"
-            zIndex="50"
-          />
-        )}
-      </InputGroup>
-    </Flex>
+        <IconButton
+          data-testid="chat-send"
+          aria-label="Send message"
+          icon={isLoading ? <Spinner size="sm" /> : <FaPaperPlane />}
+          onClick={submit}
+          isDisabled={!value.trim() || isLoading}
+          borderRadius="xl"
+          size="md"
+          mb={1}
+          mr={1}
+        />
+      </Flex>
+      <Text fontSize="xs" color="gray.400" px={3} pb={1}>
+        Press Enter to send, Shift + Enter for a new line
+      </Text>
+    </Box>
   );
 };
 

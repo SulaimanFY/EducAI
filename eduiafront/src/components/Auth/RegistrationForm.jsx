@@ -1,3 +1,4 @@
+import { Logo } from "../Layout/Navbar";
 import {
   Box,
   Button,
@@ -154,14 +155,14 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
         p={6}
         borderWidth={1}
         borderRadius="lg"
-        boxShadow="md"
-        bg="green.100"
-        my={8}
+        boxShadow="lg"
+        bg="white"
+        my={16}
       >
         <VStack spacing={6} align="center">
-          <Heading as="h1" size="xl">
-            <a href="/">EducAI</a>
-          </Heading>
+          <a href="/">
+            <Logo />
+          </a>
           <Heading as="h2" size="lg">
             Create your account
           </Heading>
@@ -218,7 +219,7 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
             </FormControl>
 
             <Button
-              colorScheme="teal"
+              colorScheme="brand"
               size="lg"
               width="full"
               onClick={onRegister}
@@ -230,7 +231,7 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
             </Button>
 
             <Text align="center">
-              Already have an account? <a href="/login" style={{ color: "teal" }}>Sign in</a>
+              Already have an account? <a href="/login" style={{ color: "#1f6d68", fontWeight: 600 }}>Sign in</a>
             </Text>
           </VStack>
         </VStack>

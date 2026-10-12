@@ -1,15 +1,38 @@
 import {
+  Avatar,
+  Box,
   Button,
   Flex,
+  HStack,
   Menu,
   MenuButton,
   MenuItem,
   MenuList,
-  Spacer,
   Text,
-  useBreakpointValue
 } from "@chakra-ui/react";
 import { FaChevronDown } from "react-icons/fa";
+import { FiGrid, FiLogOut } from "react-icons/fi";
+
+export const Logo = ({ onClick, color = "gray.900" }) => (
+  <HStack spacing={2} cursor={onClick ? "pointer" : "default"} onClick={onClick}>
+    <Flex
+      w="32px"
+      h="32px"
+      borderRadius="lg"
+      bg="brand.500"
+      color="white"
+      align="center"
+      justify="center"
+      fontWeight="800"
+      fontSize="sm"
+    >
+      E
+    </Flex>
+    <Text fontSize="xl" fontWeight="700" letterSpacing="-0.02em" color={color}>
+      Educ<Box as="span" color="brand.500">AI</Box>
+    </Text>
+  </HStack>
+);
 
 const Navbar = ({
   isAuthenticated,
@@ -19,61 +42,54 @@ const Navbar = ({
   onDashboard = () => {},
   onHome = () => {},
 }) => {
-  const marginX = useBreakpointValue({ base: "5px", md: "20px", lg: "40px" });
-
   return (
     <Flex
       as="nav"
-      bg="teal.500"
-      color="white"
-      padding="1rem"
+      bg="white"
+      borderBottom="1px solid"
+      borderColor="gray.200"
+      px={{ base: 4, md: 8 }}
+      h="64px"
       alignItems="center"
-      width="100vw"
       justifyContent="space-between"
       position="fixed"
       top="0"
       left="0"
+      right="0"
       zIndex="1000"
     >
-      <Text 
-        fontSize="xl" 
-        fontWeight="bold" 
-        ml={marginX}
-        onClick={onHome}
-        cursor="pointer"
-        _hover={{ textDecoration: 'underline' }}
-      >
-        EducAI
-      </Text>
-      <Spacer />
+      <Logo onClick={onHome} />
       {isAuthenticated ? (
-        <Menu>
-          <MenuButton
-            as={Button}
-            rightIcon={<FaChevronDown />}
-            variant="outline"
-            colorScheme="teal"
-          >
-            {username || "User"}
-          </MenuButton>
-          <MenuList>
-            <MenuItem onClick={onDashboard} textColor={"green.400"}>
-              Dashboard
-            </MenuItem>
-            {/* Wrap onLogout call to ensure it's a function */}
-            <MenuItem onClick={() => onLogout && onLogout()} textColor={"red.400"}>
-              Logout
-            </MenuItem>
-          </MenuList>
-        </Menu>
+        <HStack spacing={3}>
+          <Button leftIcon={<FiGrid />} variant="ghost" size="sm" onClick={onDashboard}>
+            Dashboard
+          </Button>
+          <Menu>
+            <MenuButton
+              as={Button}
+              variant="ghost"
+              colorScheme="gray"
+              size="sm"
+              rightIcon={<FaChevronDown />}
+            >
+              <HStack spacing={2}>
+                <Avatar size="xs" name={username} bg="brand.500" color="white" />
+                <Text>{username || "User"}</Text>
+              </HStack>
+            </MenuButton>
+            <MenuList>
+              <MenuItem icon={<FiGrid />} onClick={onDashboard}>
+                Dashboard
+              </MenuItem>
+              <MenuItem icon={<FiLogOut />} onClick={() => onLogout && onLogout()} color="red.500">
+                Log out
+              </MenuItem>
+            </MenuList>
+          </Menu>
+        </HStack>
       ) : (
-        <Button
-          colorScheme="teal"
-          variant="outline"
-          onClick={onLogin}
-          mr={marginX}
-        >
-          Login
+        <Button size="sm" onClick={onLogin}>
+          Log in
         </Button>
       )}
     </Flex>

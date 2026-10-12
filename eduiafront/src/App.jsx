@@ -1,7 +1,6 @@
 // src/App.jsx
 import { useState } from "react";
 import { Route, Routes } from "react-router-dom";
-import "./App.css";
 import LoginForm from "./components/Auth/LoginForm";
 import RegistrationForm from "./components/Auth/RegistrationForm";
 import DashboardLayout from "./components/Layout/DashboardLayout";

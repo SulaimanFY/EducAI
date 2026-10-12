@@ -525,7 +525,26 @@ def get_student_list(db, professeur_id=None):
         params = {}
     
     students = db.execute(query, params).fetchall()
-    return [{"id": s.id, "nom": s.nom, "email": s.email} for s in students]
+
+    # Exercises with a validated result for each pupil, so the dashboard can
+    # offer only the exercises a recommendation can be based on.
+    done_query = text("""
+        SELECT r.eleve_id, r.exercice_id
+        FROM resultats r
+        JOIN exercices ex ON r.exercice_id = ex.id
+        WHERE (:prof_id IS NULL OR ex.professeur_id = :prof_id)
+        ORDER BY r.exercice_id DESC
+    """)
+    done = {}
+    for row in db.execute(done_query, {"prof_id": professeur_id}).fetchall():
+        ids = done.setdefault(row.eleve_id, [])
+        if row.exercice_id not in ids:
+            ids.append(row.exercice_id)
+
+    return [
+        {"id": s.id, "nom": s.nom, "email": s.email, "exercise_ids": done.get(s.id, [])}
+        for s in students
+    ]
 
 def get_exercises_list(db, professeur_id=None):
     """Get list of exercises, optionally filtered by professor"""
@@ -574,6 +593,40 @@ def get_exercise_submissions(db, eleve_id, exercice_id):
     
     return db.execute(query, {"eleve_id": eleve_id, "exercice_id": exercice_id}).fetchall()
 
+def _question_breakdown(db, eleve_id, exercice_id):
+    """One line per question: the question, the pupil's answer, the right answer."""
+    rows = db.execute(text("""
+        SELECT s.question AS qid, s.answer AS pupil_letter, q.question AS question_text,
+               pupil_opt.texte AS pupil_text, right_opt.lettre AS right_letter,
+               right_opt.texte AS right_text
+        FROM soumissions s
+        LEFT JOIN qcms q
+            ON q.exercice_id = s.exercice_id AND LOWER(q.exercice_qcm_id) = LOWER(s.question)
+        LEFT JOIN qcm_reponses pupil_opt
+            ON pupil_opt.qcm_id = q.id AND LOWER(pupil_opt.lettre) = LOWER(s.answer)
+        LEFT JOIN qcm_reponses right_opt
+            ON right_opt.qcm_id = q.id AND right_opt.est_correct = 1
+        WHERE s.eleve_id = :eleve_id AND s.exercice_id = :exercice_id
+    """), {"eleve_id": eleve_id, "exercice_id": exercice_id}).fetchall()
+
+    def number(row):
+        digits = "".join(ch for ch in str(row.qid) if ch.isdigit())
+        return int(digits) if digits else 0
+
+    lines = []
+    for row in sorted(rows, key=number):
+        if row.question_text is None:
+            lines.append(f"{row.qid}: pupil answered {row.pupil_letter}")
+            continue
+        verdict = "correct" if (row.pupil_letter or "").upper() == (row.right_letter or "").upper() else "wrong"
+        lines.append(
+            f"{row.qid} ({verdict}): {row.question_text} | pupil answered "
+            f"{row.pupil_letter}) {row.pupil_text or '?'} | correct answer "
+            f"{row.right_letter}) {row.right_text}"
+        )
+    return lines
+
+
 def get_exercise_performance_data(db, eleve_id, exercice_id):
     """Returns student info and formatted performance data for a specific exercise"""
     data = get_exercise_submissions(db, eleve_id, exercice_id)
@@ -584,16 +637,13 @@ def get_exercise_performance_data(db, eleve_id, exercice_id):
     final_score = data[0].score if data[0].score is not None else 0
     score_percent = round((final_score / total_questions) * 100, 1) if total_questions else 0
     exercice_titre = data[0].titre
-    answers = [
-        f"{submission.question}: pupil answered {submission.answer}"
-        for submission in data
-    ]
+    answers = _question_breakdown(db, eleve_id, exercice_id)
 
     performance_str = (
         f"Exercise: {exercice_titre}\n"
         f"Final score: {final_score}/{total_questions} correct answers ({score_percent}%).\n"
         f"Fact: the pupil did not get everything right if the score is below {total_questions}/{total_questions}.\n"
-        "Pupil's answers:\n"
+        "Question by question (the score above is the teacher-validated one):\n"
         + "\n".join(answers)
     )
     
@@ -662,10 +712,12 @@ def get_student_global_performance(db, eleve_id, professeur_id):
             performance_details.append(
                 f"Exercise: {row.exercice_titre}\n"
                 f"Final score: {correct_count}/{total_questions} correct answers ({score_percent}%).\n"
-                f"Fact: the pupil did not get everything right if the score is below {total_questions}/{total_questions}."
+                f"Fact: the pupil did not get everything right if the score is below {total_questions}/{total_questions}.\n"
+                "Question by question:\n"
+                + "\n".join(_question_breakdown(db, eleve_id, row.exercice_id))
             )
     
-    performance_str = "\n".join(performance_details) if performance_details else "No exercise submissions found."
+    performance_str = "\n\n".join(performance_details) if performance_details else "No exercise submissions found."
     
     return eleve_info, performance_str 
 
@@ -705,7 +757,8 @@ def verify_student_access(db, student_id, professor_id):
 def get_exam_results_for_professor(db, exam_id, professor_id):
     """Get all student results for a specific exam/exercise"""
     query = text("""
-        SELECT e.nom as student, 
+        SELECT e.nom as student,
+               r.score as correct,
                CAST((r.score * 100.0) / (SELECT COUNT(*) FROM soumissions WHERE exercice_id = :exam_id AND eleve_id = e.id) AS INTEGER) as score,
                MAX(strftime('%Y-%m-%d', s.date_soumission)) as submission_date,
                (SELECT COUNT(*) FROM soumissions WHERE exercice_id = :exam_id AND eleve_id = e.id) as total_questions,
@@ -731,9 +784,11 @@ def get_exam_results_for_professor(db, exam_id, professor_id):
         {
             "student": row.student,
             "score": row.score,
+            "correct": row.correct,
+            "total": row.total_questions,
             "submission_date": row.submission_date,
             "status": row.status
-        } 
+        }
         for row in result
     ]
 
@@ -758,22 +813,43 @@ def get_pending_submissions(db, exam_id):
         {
             "student": row.student,
             "score": row.score,
+            "correct": row.correct,
+            "total": row.total_questions,
             "submission_date": row.submission_date,
             "status": row.status
-        } 
+        }
         for row in result
     ]
 
 def get_exams_for_professor(db, professor_id):
     """Get list of exercises formatted as exams for the dashboard"""
     query = text("""
-        SELECT e.id, e.titre as name
+        SELECT e.id, e.titre AS name,
+               (SELECT COUNT(*) FROM qcms q WHERE q.exercice_id = e.id) AS questions,
+               (SELECT COUNT(*) FROM resultats r WHERE r.exercice_id = e.id) AS marked
         FROM exercices e
         WHERE e.professeur_id = :prof_id
-        ORDER BY e.titre DESC
+        ORDER BY e.id DESC
     """)
-    
+
     result = db.execute(query, {"prof_id": professor_id}).fetchall()
-    
-    return [{"id": row.id, "name": row.name} for row in result] 
+
+    return [
+        {"id": row.id, "name": row.name, "questions": row.questions, "marked": row.marked}
+        for row in result
+    ]
+
+
+def get_exercise_options(db, exercise_id):
+    """Return every answer option of an exercise, grouped by question id (Q1, Q2...)."""
+    rows = db.execute(text("""
+        SELECT q.exercice_qcm_id AS qid, r.lettre AS letter, r.texte AS text
+        FROM qcms q JOIN qcm_reponses r ON r.qcm_id = q.id
+        WHERE q.exercice_id = :exercise_id
+        ORDER BY q.id, r.lettre
+    """), {"exercise_id": exercise_id}).fetchall()
+    options = {}
+    for row in rows:
+        options.setdefault(row.qid, []).append({"letter": row.letter, "text": row.text})
+    return options
 
