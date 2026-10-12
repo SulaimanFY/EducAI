@@ -35,21 +35,21 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
     
     // Name validation
     if (!formData.nom.trim()) {
-      newErrors.nom = "Le nom est requis";
+      newErrors.nom = "Name is required";
     }
     
     // Email validation
     if (!formData.email.trim()) {
-      newErrors.email = "L'email est requis";
+      newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Format d'email invalide";
+      newErrors.email = "Invalid email format";
     }
     
     // Password validation
     if (!formData.password) {
-      newErrors.password = "Le mot de passe est requis";
+      newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
-      newErrors.password = "Le mot de passe doit contenir au moins 6 caractères";
+      newErrors.password = "Password must be at least 6 characters";
     }
     
     setErrors(newErrors);
@@ -79,7 +79,7 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
       });
 
       toast({
-        title: "Inscription réussie",
+        title: "Account created",
         description: response.data.message,
         status: "success",
         duration: 3000,
@@ -106,8 +106,8 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
       } catch (loginError) {
         console.error("Auto-login failed:", loginError);
         toast({
-          title: "Inscription réussie, mais connexion automatique échouée",
-          description: "Veuillez vous connecter manuellement.",
+          title: "Account created, but automatic sign-in failed",
+          description: "Please sign in manually.",
           status: "warning",
           duration: 5000,
           isClosable: true,
@@ -119,7 +119,7 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
       console.error("Registration failed:", e);
       
       // Improved error handling to safely parse and display server errors
-      let errorMessage = "Erreur lors de l'inscription. Vérifiez les informations.";
+      let errorMessage = "Registration failed. Please check your details.";
       
       if (e.response?.data) {
         if (typeof e.response.data.detail === 'string') {
@@ -136,7 +136,7 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
       }
       
       toast({
-        title: "Échec de l'inscription",
+        title: "Registration failed",
         description: errorMessage,
         status: "error",
         duration: 5000,
@@ -160,18 +160,18 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
       >
         <VStack spacing={6} align="center">
           <Heading as="h1" size="xl">
-            <a href="/">EduIA</a>
+            <a href="/">EducAI</a>
           </Heading>
           <Heading as="h2" size="lg">
-            Inscription
+            Create your account
           </Heading>
 
           <VStack spacing={4} w="100%">
             <FormControl id="nom" isInvalid={!!errors.nom}>
-              <FormLabel>Nom</FormLabel>
+              <FormLabel>Name</FormLabel>
               <Input
                 type="text"
-                placeholder="Entrez votre nom"
+                placeholder="Enter your name"
                 value={formData.nom}
                 onChange={handleChange}
                 bg="white"
@@ -184,7 +184,7 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
               <FormLabel>Email</FormLabel>
               <Input
                 type="email"
-                placeholder="Entrez votre email"
+                placeholder="Enter your email"
                 value={formData.email}
                 onChange={handleChange}
                 bg="white"
@@ -194,11 +194,11 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
             </FormControl>
 
             <FormControl id="password" isInvalid={!!errors.password}>
-              <FormLabel>Mot de passe</FormLabel>
+              <FormLabel>Password</FormLabel>
               <InputGroup>
                 <Input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Entrez votre mot de passe"
+                  placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleChange}
                   bg="white"
@@ -206,7 +206,7 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
                 />
                 <InputRightElement h="full">
                   <IconButton
-                    aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                     icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
                     onClick={() => setShowPassword(!showPassword)}
                     variant="ghost"
@@ -223,14 +223,14 @@ const RegistrationForm = ({ setIsAuthenticated }) => {
               width="full"
               onClick={onRegister}
               isLoading={isLoading}
-              loadingText="Inscription en cours..."
+              loadingText="Creating account..."
               mt={4}
             >
-              S'inscrire
+              Sign up
             </Button>
 
             <Text align="center">
-              Déjà un compte? <a href="/login" style={{ color: "teal" }}>Se connecter</a>
+              Already have an account? <a href="/login" style={{ color: "teal" }}>Sign in</a>
             </Text>
           </VStack>
         </VStack>

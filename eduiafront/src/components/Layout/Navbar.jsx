@@ -43,7 +43,7 @@ const Navbar = ({
         cursor="pointer"
         _hover={{ textDecoration: 'underline' }}
       >
-        EduIA
+        EducAI
       </Text>
       <Spacer />
       {isAuthenticated ? (

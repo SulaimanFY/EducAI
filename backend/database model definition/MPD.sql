@@ -1,4 +1,4 @@
--- Modèle Physique de Données pour SQLite
+-- Physical data model for SQLite
 
 CREATE TABLE Professeur (
     id_professeur INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,4 +1,4 @@
--- Modèle Logique de Données pour le système de gestion des exercices de math
+-- Logical data model for the maths exercise management system
 
 CREATE TABLE professeurs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,7 +61,7 @@ CREATE TABLE resultats (
     exercice_id INTEGER REFERENCES exercices(id)
 );
 
--- Indexes pour optimiser les performances
+-- Indexes to speed up frequent queries
 CREATE INDEX idx_professeurs_email ON professeurs(email);
 CREATE INDEX idx_eleves_email ON eleves(email);
 CREATE INDEX idx_exercices_professeur ON exercices(professeur_id);
@@ -81,9 +81,9 @@ CREATE TABLE Suggestion (
     date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Ajout des tables necessaires pour la correction automatique des copies
+-- Tables needed for automatic marking of answer sheets
 
--- Table Soumission : Stocke les copies soumises par les élèves
+-- Submission table: stores the answer sheets submitted by pupils
 CREATE TABLE Soumission (
     id_soumission SERIAL PRIMARY KEY,
     id_eleve INT REFERENCES Eleve(id_eleve),
@@ -91,7 +91,7 @@ CREATE TABLE Soumission (
     date_soumission TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table Correction : Associe chaque soumission avec une correction et un score
+-- Correction table: links each submission to a marking and a score
 CREATE TABLE Correction (
     id_correction SERIAL PRIMARY KEY,
     id_soumission INT REFERENCES Soumission(id_soumission),
@@ -99,7 +99,7 @@ CREATE TABLE Correction (
     feedback TEXT
 );
 
--- Table Performance : Suivi des performances des élèves par chapitre
+-- Performance table: tracks pupil performance by chapter
 CREATE TABLE Performance (
     id_performance SERIAL PRIMARY KEY,
     id_eleve INT REFERENCES Eleve(id_eleve),
@@ -108,7 +108,7 @@ CREATE TABLE Performance (
     score_moyen FLOAT
 );
 
--- Table Recommandation : Suggestions d'amélioration pour chaque élève
+-- Recommendation table: improvement suggestions for each pupil
 CREATE TABLE Recommandation (
     id_recommandation SERIAL PRIMARY KEY,
     id_eleve INT REFERENCES Eleve(id_eleve),

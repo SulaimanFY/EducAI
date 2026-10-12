@@ -83,20 +83,19 @@ class Soumission(Base):
    
 
 class Resultat(Base):
-    """Résultat final de correction d'un exercice par un élève.
+    """Final marking of one exercise for one pupil.
 
-    Le champ ``score`` stocke un compteur brut : le **nombre de bonnes
-    réponses** validées par le professeur pour cet élève sur cet exercice.
+    ``score`` stores a raw count: the **number of correct answers** validated
+    by the teacher for this pupil on this exercise.
 
-    Pour obtenir un pourcentage il faut le rapporter au nombre de questions
-    de l'exercice, c'est-à-dire au nombre de lignes correspondantes dans
-    ``soumissions`` (ou dans ``qcms``). Ex : ``score = 2`` et 4 questions
-    donnent 50 %.
+    To get a percentage, divide it by the number of questions in the exercise,
+    i.e. the number of matching rows in ``soumissions`` (or ``qcms``).
+    Example: ``score = 2`` with 4 questions gives 50%.
     """
 
     __tablename__ = "resultats"
     id = Column(Integer, primary_key=True, index=True)
-    # Nombre brut de bonnes réponses (PAS un pourcentage). Voir docstring.
+    # Raw number of correct answers (NOT a percentage). See docstring.
     score = Column(Integer)
 
     eleve_id = Column(Integer, ForeignKey("eleves.id"))
@@ -106,10 +105,10 @@ class Resultat(Base):
     exercice = relationship("Exercice", back_populates="resultats")
    
     
-# Modèle pour les recommandations structurées
+# Structured recommendations returned by the LLM
 class Recommendation(BaseModel):
-    strengths: List[str] = Field(description="Points forts de l'élève")
-    weaknesses: List[str] = Field(description="Points à améliorer")
-    recommendations: List[str] = Field(description="Recommandations spécifiques pour aider l'élève")
-    resources: List[str] = Field(description="Ressources ou exercices suggérés")
+    strengths: List[str] = Field(description="The pupil's strengths")
+    weaknesses: List[str] = Field(description="Areas to improve")
+    recommendations: List[str] = Field(description="Specific recommendations to help the pupil")
+    resources: List[str] = Field(description="Suggested resources or exercises")
 

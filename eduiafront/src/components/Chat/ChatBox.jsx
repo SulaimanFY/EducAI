@@ -11,7 +11,7 @@ const ChatBox = ({ showLoginForm = () => { }, onSubmit, isAuthenticated, isLoadi
 
   const handleSubmit = () => {
     if (inputValue.trim()) {
-      onSubmit(inputValue); // <-- C'est ici qu'on appelle la fonction parent
+      onSubmit(inputValue); // hand the message to the parent page
       setInputValue(""); // Clear input field after submission
     }
   };
@@ -28,7 +28,7 @@ const ChatBox = ({ showLoginForm = () => { }, onSubmit, isAuthenticated, isLoadi
     <Flex as="form" mt="4" width="container.lg" position="relative">
       <InputGroup size="md">
         <Textarea
-          placeholder="Posez-moi vos questions"
+          placeholder="Describe the exercise you need, e.g. 5 questions on addition for Grade 2"
           value={inputValue}
           onChange={handleInputChange}
           pr="3rem"

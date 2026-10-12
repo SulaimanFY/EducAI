@@ -5,330 +5,306 @@ import os
 import re
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_community.tools import DuckDuckGoSearchRun
 
 from models import Programme, Recommendation
 
 logger = logging.getLogger(__name__)
 
 llm = ChatOpenAI(
-    model_name="gpt-4o",
+    model_name=os.environ.get("OPENAI_MODEL", "gpt-4o"),
     temperature=0.7,
     max_tokens=4000
+)
+
+# Default curriculum shipped with the app (French national curriculum, Cycle 2).
+DEFAULT_CURRICULUM_PDF = "program/cycle2_maths.pdf"
+DEFAULT_CURRICULUM_SUMMARY = (
+    "Primary school mathematics for ages 6 to 8 (Grades 1 to 3; Cycle 2 of the "
+    "French national curriculum: CP, CE1, CE2), covering numbers, calculation, "
+    "geometry and measurement."
 )
 
 QCM_PROMPT_TEMPLATE = PromptTemplate(
     input_variables=["programme"],
     template="""
-    Rôle :  
-    Tu es un assistant pédagogique spécialisé en mathématiques pour les élèves du cycle 2 (CP, CE1, CE2).  
-    Ton objectif est de générer des exercices variés sous forme de QCM, en couvrant tout le programme officiel de manière ludique et engageante.
-    Génère des exercices sous forme de QCM en respectant ces règles :
-    - Le QCM doit contenir une question et 4 choix de réponses.
-    - Une seule réponse doit être correcte.
-    - Le contexte doit être ludique et adapté aux enfants du cycle 2.
-    - Le QCM doit couvrir le programme suivant : {programme}
-    
-**Consignes pour la génération des exercices :**  
-1️⃣ **Diversité et créativité :**  
-   - Évite de répéter les mêmes types d'exercices d'une question à l'autre.  
-   - Intègre des **mises en situation concrètes** adaptées aux enfants (ex: comptage de billes, partage de bonbons, achat au marché, mesure d'objets du quotidien, etc.).  
-   - Utilise des **contextes variés** pour rendre les questions plus engageantes (ex : école, aventure, histoire, animaux, sport, voyage).  
+Role:
+You are a teaching assistant specialised in mathematics for young primary pupils
+(ages 6 to 8, Grades 1 to 3). Your goal is to create varied multiple-choice
+exercises that cover the curriculum in a playful, engaging way.
 
-2️⃣ **Respect du programme du cycle 2 :**  
-   - **Numération** (comparer, ranger des nombres, écrire en lettres).  
-   - **Calculs** (additions, soustractions, multiplications simples, doubles et moitiés).  
-   - **Grandeurs et mesures** (temps, monnaie, longueurs, masses).  
-   - **Géométrie** (formes, symétries, tracés, orientation dans l'espace).  
-   - **Problèmes logiques** (résolution de petites énigmes adaptées aux élèves).  
+Rules for every multiple-choice question:
+- One question and exactly 4 answer options (A, B, C, D).
+- Exactly one option is correct.
+- The context is playful and suited to children aged 6 to 8.
+- The exercise must follow this request and curriculum: {programme}
 
-3️⃣ **Format standardisé du QCM :**  
-   - Chaque exercice contient une question et **4 choix de réponse** (A, B, C, D).  
-   - Indique **la bonne réponse** sous forme claire et précise.  
-   - Formule les questions **de manière simple et accessible** aux enfants du cycle 2.  
+Guidelines:
+1. Variety and creativity
+   - Do not repeat the same kind of question twice in a row.
+   - Use concrete situations children know (counting marbles, sharing sweets,
+     shopping at the market, measuring everyday objects...).
+   - Vary the settings (school, adventure, stories, animals, sport, travel).
 
-**Refuser poliment les sujets hors mathématiques du cycle 2**  
-Si l'utilisateur pose une question hors sujet, réponds :  
-*"Je suis un assistant dédié uniquement aux exercices de mathématiques pour les élèves du cycle 2. Peux-tu préciser un domaine des maths du cycle 2 sur lequel tu aimerais un QCM ?"*  
+2. Stay within the curriculum
+   - Numbers (compare, order, write numbers in words).
+   - Calculation (addition, subtraction, simple multiplication, doubles and halves).
+   - Quantities and measurement (time, money, length, mass).
+   - Geometry (shapes, symmetry, drawing, position in space).
+   - Logic problems (small puzzles suited to the age group).
 
-Ne réponds à aucune autre demande en dehors de ce cadre.  
+3. Format
+   - Write in clear, simple English that a young child can follow.
+   - Use whole numbers and amounts in the answer options, not letters.
+   - Unless the teacher asks for a different number, write 5 questions.
 
-**Mission principale :**  
-Crée des QCM variés, uniques et pédagogiques pour les élèves du cycle 2, sans répétition et avec des mises en situation réalistes, les questions doivent être originales et pertinentes et porter sur plusieurs domaines du programme ! Pour chaque exercice, tu dois générer au moins 5 questions.   
+4. Correct answer key
+   - For each question, first write the full working in "working"
+     (for example "50 - 12 = 38"), then mark as correct the one option that
+     matches that result. Check every calculation twice.
+   - The three wrong options must be plausible but clearly wrong.
 
-    
-    Réponds au format JSON suivant :
-    {{
-        "titre": "Titre de l'exercice",
-        "contenu": "Contexte de l'exercice",
-        "qcm": [
-            {{
-                "question": "texte de la question",
-                "id_qcm": "Q1",
-                "reponses": [
-                    {{"texte": "texte de la réponse A", "est_correct": false, "lettre": "A"}},
-                    {{"texte": "texte de la réponse B", "est_correct": false, "lettre": "B"}},
-                    {{"texte": "texte de la réponse C", "est_correct": true, "lettre": "C"}},
-                    {{"texte": "texte de la réponse D", "est_correct": false, "lettre": "D"}}
-                ]
-            }}
-        ]
-    }}
-    """
+Politely decline anything that is not primary maths for ages 6 to 8. In that
+case, still answer with the JSON below, with an empty "qcm" list and the
+"contenu" field set to: "I can only create maths exercises for pupils aged 6 to 8.
+Which maths topic would you like a quiz on?"
+
+Answer with JSON only, in this exact format:
+{{
+    "titre": "Exercise title",
+    "contenu": "Short story or context that introduces the exercise",
+    "qcm": [
+        {{
+            "question": "question text",
+            "id_qcm": "Q1",
+            "working": "the calculation or reasoning that gives the answer",
+            "reponses": [
+                {{"texte": "option A", "est_correct": false, "lettre": "A"}},
+                {{"texte": "option B", "est_correct": false, "lettre": "B"}},
+                {{"texte": "option C", "est_correct": true, "lettre": "C"}},
+                {{"texte": "option D", "est_correct": false, "lettre": "D"}}
+            ]
+        }}
+    ]
+}}
+"""
 )
 
-def invoke_generate_qcm_agent(prompt, professeur_id, db):
-    professor_curriculum = get_professor_curriculum(professeur_id, db)
 
-    if not professor_curriculum:
-        if "programme" in prompt.lower() or "curriculum" in prompt.lower():
-            pdf_path = "program/cycle2_maths.pdf"
-            retriever = load_pdf_curriculum(pdf_path)
+def _parse_json_output(raw_output):
+    """Extract the first JSON object from an LLM answer (with or without a code fence)."""
+    if not raw_output:
+        raise ValueError("The AI returned an empty answer. Check the model and the prompt.")
 
-            if retriever:
-                results = retriever.get_relevant_documents(prompt)
-                curriculum_info = (
-                    results[0].page_content if results else "Aucune info trouvée."
-                )
-            else:
-                curriculum_info = (
-                    fetch_latest_curriculum() or "Impossible de récupérer le programme."
-                )
-                if (
-                    curriculum_info
-                    and curriculum_info != "Impossible de récupérer le programme."
-                ):
-                    save_professor_curriculum(professeur_id, curriculum_info, db)
+    json_blocks = re.findall(r"```(?:json)?\s*\n(.*?)\n```", raw_output, re.DOTALL)
+    json_content = json_blocks[0].strip() if json_blocks else raw_output.strip()
 
-            programme_context = curriculum_info
-        else:
-            programme_context = (
-                "Programme de mathématiques du cycle 2 (CP, CE1, CE2) incluant la "
-                "numération, le calcul, la géométrie et les mesures."
-            )
-    else:
-        programme_context = professor_curriculum
-    
-    prompt_lower = prompt.lower()
-    if "programme" not in prompt_lower and "curriculum" not in prompt_lower:
-        programme_complet = f"{prompt}\n\nProgramme à couvrir: {programme_context}"
-    else:
-        programme_complet = prompt
-    
-    # Générer le QCM avec le programme complet
-    chain = QCM_PROMPT_TEMPLATE | llm | StrOutputParser()
-    qcm_json = chain.invoke({"programme": programme_complet})
-   
-    if not qcm_json:  # Vérifie si la sortie est vide ou None
-        raise ValueError("La sortie de l'IA est vide. Vérifie le modèle et le prompt.")
-    
-    # Extraire le premier objet JSON valide, en recherchant d'abord un bloc code JSON
-    json_content = None
-    
-    # Cas 1: Essayer d'extraire à partir d'un bloc de code markdown
-    json_blocks = re.findall(r"```(?:json)?\n(.*?)\n```", qcm_json, re.DOTALL)
-    if json_blocks:
-        json_content = json_blocks[0].strip()
-    else:
-        # Cas 2: Pas de bloc markdown, essayer directement le contenu
-        json_content = qcm_json.strip()
-    
     try:
         return json.loads(json_content)
     except json.JSONDecodeError as e:
-        logger.warning("QCM JSON parse error: %s. Trying balanced-braces fallback.", e)
-        try:
-            depth = 0
-            start_pos = json_content.find("{")
-            if start_pos >= 0:
-                for i in range(start_pos, len(json_content)):
-                    if json_content[i] == "{":
-                        depth += 1
-                    elif json_content[i] == "}":
-                        depth -= 1
-                        if depth == 0:
-                            return json.loads(json_content[start_pos : i + 1])
-        except Exception as e2:
-            logger.error("Balanced-braces fallback failed: %s", e2)
-
-        raise ValueError(f"Impossible de parser la réponse en JSON: {e}")
+        logger.warning("JSON parse error: %s. Trying balanced-braces fallback.", e)
+        depth = 0
+        start_pos = json_content.find("{")
+        if start_pos >= 0:
+            for i in range(start_pos, len(json_content)):
+                if json_content[i] == "{":
+                    depth += 1
+                elif json_content[i] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        return json.loads(json_content[start_pos : i + 1])
+        raise ValueError(f"Could not parse the AI answer as JSON: {e}")
 
 
-FORMAT_PROMPT = """
-Rôle : system
-content : "Tu es un assistant pédagogique chargé de formater des exercices mathématiques sous forme de QCM pour un examen. Les données brutes fournies sont extraites d'une base de données et doivent être restructurées de manière claire et lisible.  
-
-### Format attendu :  
-Chaque exercice est présenté avec :  
-- L'Id de l'exercice
-- Un titre correspondant au nom du module  
-- Une introduction expliquant le contexte  
-- Une question suivie de plusieurs choix de réponses  
-- La réponse correcte doit être identifiée  
-
-### Exemple de formatage :  
-**Titre : Aventure Mathématique au Pays des Nombres**  
-**Introduction :** Bienvenue dans l'aventure mathématique au Pays des Nombres ! Tu vas aider le petit lapin à résoudre des problèmes pour retrouver sa maison. Prêt ? C'est parti !  
-
-**Question 1 :**  
-Le petit lapin a 10 bonbons. Il en donne 4 à son ami. Combien lui reste-t-il de bonbons ?  
-
-A) 4  
-B) 5  
-C) 6  
-D) 7  
-
-**Réponse correcte :** B) 6  
-
-### Instructions :  
-- Agrège les questions par module en conservant l'introduction et la mise en contexte  
-- Formate les réponses sous forme de liste (A, B, C, D)  
-- Mets en avant la bonne réponse sans l'afficher directement pour l'élève  
-- Respecte une présentation propre et aérée"
-"""
+def _retrieve_curriculum_context(retriever, query, k=3):
+    """Return the most relevant curriculum passages for a teacher request."""
+    try:
+        documents = retriever.invoke(query)
+    except Exception as e:
+        logger.warning("Curriculum retrieval failed: %s", e)
+        return ""
+    return "\n\n".join(doc.page_content for doc in documents[:k])
 
 
-def convert_query_result_to_string(query_result):
-    return "\n".join([str(record) for record in query_result])
+def invoke_generate_qcm_agent(prompt, professeur_id, db):
+    # Use the teacher's uploaded curriculum when there is one, otherwise the
+    # curriculum PDF shipped with the app.
+    retriever = get_professor_curriculum(professeur_id, db) or load_pdf_curriculum(
+        DEFAULT_CURRICULUM_PDF
+    )
+    curriculum_context = (
+        _retrieve_curriculum_context(retriever, prompt) if retriever else ""
+    ) or DEFAULT_CURRICULUM_SUMMARY
 
-def format_qcm_data(query_result, new_exercise):
-    query_result_string = convert_query_result_to_string(f"Exercice {new_exercise.id}  : {query_result}")
-    # Définition du prompt utilisateur
-    user_prompt = f"Format les données pour la lisibilité avec le numéro de l'exercice en premier et le titre en second {query_result_string}"
+    programme_complet = (
+        f"Teacher's request: {prompt}\n\n"
+        f"Relevant curriculum extracts:\n{curriculum_context}"
+    )
 
-    # Envoi des messages au modèle
-    response = llm.invoke([
-        SystemMessage(content=FORMAT_PROMPT),  # System Prompt
-        HumanMessage(content=user_prompt)      # Question de l'utilisateur
-    ])
+    chain = QCM_PROMPT_TEMPLATE | llm | StrOutputParser()
+    qcm_data = _parse_json_output(chain.invoke({"programme": programme_complet}))
 
-    # Affichage de la réponse
-    return response.content
+    # Keep only well-formed questions: options present and exactly one marked correct.
+    valid_questions = []
+    for question in qcm_data.get("qcm", []) or []:
+        options = question.get("reponses", [])
+        if options and sum(bool(o.get("est_correct")) for o in options) == 1:
+            valid_questions.append(question)
+        else:
+            logger.warning("Dropping malformed question: %s", question.get("question"))
+    for number, question in enumerate(valid_questions, start=1):
+        question["id_qcm"] = f"Q{number}"
+    qcm_data["qcm"] = valid_questions
+    return qcm_data
+
+
+def format_qcm_data(qcm_data, new_exercise):
+    """Render a generated exercise as readable text for the chat.
+
+    The exercise is already structured, so it is formatted directly instead of
+    asking the model a second time: faster, cheaper, and the correct answers
+    shown are exactly the ones stored in the database.
+    """
+    lines = [
+        f"### Exercise {new_exercise.id}: {qcm_data.get('titre', '').strip()}",
+    ]
+    intro = (qcm_data.get("contenu") or "").strip()
+    if intro:
+        lines.append(f"Introduction: {intro}")
+
+    for number, question in enumerate(qcm_data.get("qcm", []), start=1):
+        lines.append(f"Question {number}: {question['question'].strip()}")
+        correct = None
+        for option in question.get("reponses", []):
+            lines.append(f"{option['lettre']}) {option['texte']}")
+            if option.get("est_correct"):
+                correct = option
+        if correct:
+            lines.append(f"Correct answer: {correct['lettre']}) {correct['texte']}")
+
+    return "\n".join(lines)
 
 
 EXTRACTION_PROMPT = PromptTemplate(
     input_variables=["texte_extrait"],
     template="""
-Analyse le texte ci-dessous issu d'un élève et structure les informations sous format JSON.
-Identifie :
-- L'ID de l'élève
-- L'ID de l'exercice
-- Le nom de l'élève
-- La date de soumission
-- Les réponses aux questions sous forme de liste
+Read the text below, taken from a pupil's answer sheet, and structure it as JSON.
+Find:
+- the pupil ID
+- the exercise ID
+- the pupil's name
+- the submission date (YYYY-MM-DD)
+- the answer given to each question
 
-Texte extrait :
+Write each question identifier as "Q" followed by its number ("Q1", "Q2", ...),
+and each answer as the single letter the pupil chose (A, B, C or D).
+
+Extracted text:
 {texte_extrait}
 
-Réponse attendue (format JSON) :
+Expected answer (JSON only):
 {{
   "id_eleve": "",
   "nom_eleve": "",
   "id_exercice": "",
   "date_soumission": "",
   "reponses": [
-    {{"id_exercice": 1, "question": Q1, "reponse_choisie": "A"}},
-    {{"id_exercice": 1, "question": Q2, "reponse_choisie": "B"}}
+    {{"question": "Q1", "reponse_choisie": "A"}},
+    {{"question": "Q2", "reponse_choisie": "B"}}
   ]
 }}
 """,
 )
 
 
+def _normalise_answers(structured_data):
+    """Make question ids and letters match the stored answer key ("Q1", "A")."""
+    for answer in structured_data.get("reponses", []) or []:
+        question = str(answer.get("question", "")).strip()
+        digits = re.sub(r"\D", "", question)
+        if digits:
+            answer["question"] = f"Q{int(digits)}"
+        letter = str(answer.get("reponse_choisie", "")).strip().upper()
+        answer["reponse_choisie"] = letter[:1]
+    return structured_data
+
+
 def invoke_analyze_student_copy_agent(text: str):
     chain = EXTRACTION_PROMPT | llm | StrOutputParser()
-    qcm_json = chain.invoke({"texte_extrait": text})
-    if not qcm_json:
-        raise ValueError("La sortie de l'IA est vide. Vérifie le modèle et le prompt.")
-    match = re.search(r"```json\n(.*?)\n```", qcm_json, re.DOTALL)
-    if match:
-        qcm_json_clean = match.group(1).strip()
-    else:
-        qcm_json_clean = qcm_json.strip()
-    try:
-        return json.loads(qcm_json_clean)
-    except json.JSONDecodeError as e:
-        logger.error("Cannot parse student copy JSON: %s", e)
-        raise
+    raw_output = chain.invoke({"texte_extrait": text})
+    return _normalise_answers(_parse_json_output(raw_output))
 
 
 def invoke_llm_recommendation_agent(student_name, student_email, performance_details):
-    """Generate personalized recommendations for a student based on their performance"""
-    
-    # Setup the parser
+    """Generate personalised recommendations for a pupil based on their results."""
     parser = PydanticOutputParser(pydantic_object=Recommendation)
-    
-    # Create the prompt template
-    student_recommendation_template = PromptTemplate( 
+
+    student_recommendation_template = PromptTemplate(
         input_variables=["nom_eleve", "email", "performance_details"],
         template="""
-Tu es un assistant pédagogique intelligent qui aide les professeurs à mieux comprendre les forces et faiblesses de leurs élèves.
+You are a teaching assistant who helps teachers understand each pupil's strengths
+and weaknesses.
 
-Voici les informations sur l'élève {nom_eleve} {email}:
+Pupil: {nom_eleve} {email}
 
-Performance par exercice:
+Results per exercise:
 {performance_details}
 
-Basé sur ces données, génère des recommandations personnalisées pour aider cet élève à progresser.
-Les recommandations doivent être spécifiques, actionables et adaptées au niveau de l'élève.
-Respecte strictement les scores fournis. Si le score est 2/4, ne dis jamais que l'élève a tout réussi.
-Les points forts doivent seulement mentionner les acquis réellement démontrés par les données.
-Les points à améliorer doivent refléter les erreurs ou le score partiel.
+Based on these results, write personalised recommendations to help this pupil
+progress. They must be specific, actionable and suited to a child aged 6 to 8.
+Stick strictly to the scores given. If the score is 2/4, never say the pupil got
+everything right. Strengths must only mention skills the results actually show.
+Areas to improve must reflect the mistakes or the partial score.
+Write in English.
 
 {format_instructions}
 """,
         partial_variables={"format_instructions": parser.get_format_instructions()}
     )
-    
-    # Create the chain properly
+
     chain = student_recommendation_template | llm | parser
-    
-    # Invoke the chain with input variables
-    result = chain.invoke({
+    return chain.invoke({
         "nom_eleve": student_name,
         "email": student_email,
         "performance_details": performance_details
     })
-    
-    return result 
-
 
 
 # ======================================================
 # PDF CURRICULUM LOADER
 # ======================================================
+_retriever_cache = {}
+
+
 def load_pdf_curriculum(pdf_path):
-    if os.path.exists(pdf_path):
-        loader = PyPDFLoader(pdf_path)
-        documents = loader.load()
+    """Index a curriculum PDF for retrieval. Indexes are cached per file version."""
+    if not pdf_path or not os.path.exists(pdf_path):
+        return None
+
+    cache_key = (os.path.abspath(pdf_path), os.path.getmtime(pdf_path))
+    if cache_key in _retriever_cache:
+        return _retriever_cache[cache_key]
+
+    try:
+        documents = PyPDFLoader(pdf_path).load()
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         chunks = text_splitter.split_documents(documents)
         vectorstore = FAISS.from_documents(chunks, OpenAIEmbeddings())
-        retriever = vectorstore.as_retriever()
-        return retriever
-    return None
-
-
-def fetch_latest_curriculum():
-    try:
-        search_tool = DuckDuckGoSearchRun()
-        results = search_tool.invoke(
-            "Cycle 2 math programme France site:education.gouv.fr"
-        )
-        return results if results else None
     except Exception as e:
-        logger.warning("DuckDuckGo curriculum lookup failed: %s", e)
+        logger.exception("Could not index curriculum %s: %s", pdf_path, e)
         return None
+
+    retriever = vectorstore.as_retriever()
+    _retriever_cache[cache_key] = retriever
+    return retriever
 
 
 def get_professor_curriculum(professeur_id, db):
-    """Retourne le retriever PDF du programme du professeur, ou ``None``."""
+    """Return a retriever over the teacher's uploaded curriculum, or ``None``."""
     try:
         result = (
             db.query(Programme)
@@ -339,29 +315,5 @@ def get_professor_curriculum(professeur_id, db):
             return load_pdf_curriculum(result.file_path)
         return None
     except Exception as e:
-        logger.exception("Error fetching professor curriculum: %s", e)
+        logger.exception("Error fetching teacher curriculum: %s", e)
         return None
-
-
-def save_professor_curriculum(professeur_id, curriculum, db):
-    """Persiste un texte de curriculum pour un professeur."""
-    try:
-        programme = (
-            db.query(Programme)
-            .filter(Programme.professeur_id == professeur_id)
-            .first()
-        )
-        if programme:
-            programme.description = curriculum
-            db.commit()
-            return True
-        logger.warning(
-            "Professor ID %s has no Programme row; curriculum not persisted",
-            professeur_id,
-        )
-        return False
-    except Exception as e:
-        logger.exception("Error saving professor curriculum: %s", e)
-        db.rollback()
-        return False
-

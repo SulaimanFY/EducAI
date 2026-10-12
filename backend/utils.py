@@ -26,7 +26,7 @@ def resolve_exercice_id(db, exo_id, professeur_id=None):
         return fallback.id
 
     raise ValueError(
-        "Aucun exercice disponible. Générez d'abord un QCM via le chat avant de corriger une copie."
+        "No exercise available yet. Generate a quiz in the chat before marking an answer sheet."
     )
 
 
@@ -552,7 +552,7 @@ def get_exercises_list(db, professeur_id=None):
  
 
 def get_exercise_submissions(db, eleve_id, exercice_id):
-    """Récupère les soumissions d'un élève pour un exercice spécifique"""
+    """Return a pupil's submissions for one exercise."""
     query = text("""
     SELECT 
         s.id,
@@ -585,15 +585,15 @@ def get_exercise_performance_data(db, eleve_id, exercice_id):
     score_percent = round((final_score / total_questions) * 100, 1) if total_questions else 0
     exercice_titre = data[0].titre
     answers = [
-        f"{submission.question}: réponse élève {submission.answer}"
+        f"{submission.question}: pupil answered {submission.answer}"
         for submission in data
     ]
 
     performance_str = (
-        f"Exercice: {exercice_titre}\n"
-        f"Score final: {final_score}/{total_questions} bonnes réponses ({score_percent}%).\n"
-        f"Conclusion factuelle: l'élève n'a pas tout réussi si le score est inférieur à {total_questions}/{total_questions}.\n"
-        "Réponses de l'élève:\n"
+        f"Exercise: {exercice_titre}\n"
+        f"Final score: {final_score}/{total_questions} correct answers ({score_percent}%).\n"
+        f"Fact: the pupil did not get everything right if the score is below {total_questions}/{total_questions}.\n"
+        "Pupil's answers:\n"
         + "\n".join(answers)
     )
     
@@ -660,9 +660,9 @@ def get_student_global_performance(db, eleve_id, professeur_id):
                 else 0
             )
             performance_details.append(
-                f"Exercice: {row.exercice_titre}\n"
-                f"Score final: {correct_count}/{total_questions} bonnes réponses ({score_percent}%).\n"
-                f"Conclusion factuelle: l'élève n'a pas tout réussi si le score est inférieur à {total_questions}/{total_questions}."
+                f"Exercise: {row.exercice_titre}\n"
+                f"Final score: {correct_count}/{total_questions} correct answers ({score_percent}%).\n"
+                f"Fact: the pupil did not get everything right if the score is below {total_questions}/{total_questions}."
             )
     
     performance_str = "\n".join(performance_details) if performance_details else "No exercise submissions found."
