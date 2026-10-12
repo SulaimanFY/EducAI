@@ -48,6 +48,7 @@ from utils import (
     get_exams_for_professor,
     resolve_exercice_id,
     reconcile_submissions_exercise,
+    get_exercise_options,
 )
 
 app = FastAPI(title="EducAI API", version="1.0.0")
@@ -353,8 +354,11 @@ async def submit_copy(
         round((correct_count / total_questions) * 100, 1) if total_questions else 0
     )
 
+    exercise = db.query(Exercice).filter(Exercice.id == id_exercice).first()
     response = {
         "message": "Submission processed successfully",
+        "exercise_title": exercise.titre if exercise else None,
+        "options": get_exercise_options(db, id_exercice),
         "data": structured_data,
         "correct_count": correct_count,
         "total_questions": total_questions,
@@ -402,6 +406,26 @@ async def chatbot(
     return {
         "response": format_qcm_data(qcm_payload, new_exercise),
         "exercise_id": new_exercise.id,
+        "exercise": {
+            "id": new_exercise.id,
+            "title": qcm_payload.get("titre", ""),
+            "intro": qcm_payload.get("contenu", ""),
+            "questions": [
+                {
+                    "id": question["id_qcm"],
+                    "text": question["question"],
+                    "options": [
+                        {
+                            "letter": option["lettre"],
+                            "text": option["texte"],
+                            "correct": bool(option.get("est_correct")),
+                        }
+                        for option in question["reponses"]
+                    ],
+                }
+                for question in qcm_payload["qcm"]
+            ],
+        },
     }
 
 

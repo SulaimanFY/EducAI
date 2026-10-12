@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import random
 import re
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -158,6 +159,11 @@ def invoke_generate_qcm_agent(prompt, professeur_id, db):
             logger.warning("Dropping malformed question: %s", question.get("question"))
     for number, question in enumerate(valid_questions, start=1):
         question["id_qcm"] = f"Q{number}"
+        # Models tend to put the right answer in the same slot; shuffle the
+        # options so its letter varies, then re-letter them A, B, C, D.
+        random.shuffle(question["reponses"])
+        for letter, option in zip("ABCDEFGH", question["reponses"]):
+            option["lettre"] = letter
     qcm_data["qcm"] = valid_questions
     return qcm_data
 
@@ -259,6 +265,10 @@ progress. They must be specific, actionable and suited to a child aged 6 to 8.
 Stick strictly to the scores given. If the score is 2/4, never say the pupil got
 everything right. Strengths must only mention skills the results actually show.
 Areas to improve must reflect the mistakes or the partial score.
+Be concrete: name the skill behind each wrong answer (for example "subtracting
+across a ten, such as 30 - 18") and, where it helps, the likely mistake. Keep each
+point to one or two short sentences a teacher can act on, and suggest resources
+a teacher can find or make easily (no invented links).
 Write in English.
 
 {format_instructions}
@@ -293,7 +303,11 @@ def load_pdf_curriculum(pdf_path):
         documents = PyPDFLoader(pdf_path).load()
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         chunks = text_splitter.split_documents(documents)
-        vectorstore = FAISS.from_documents(chunks, OpenAIEmbeddings())
+        vectorstore = FAISS.from_documents(
+            chunks,
+            # Chunks are short, so skip tiktoken length checks (no tokenizer download needed).
+            OpenAIEmbeddings(check_embedding_ctx_length=False),
+        )
     except Exception as e:
         logger.exception("Could not index curriculum %s: %s", pdf_path, e)
         return None
