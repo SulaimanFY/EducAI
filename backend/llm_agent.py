@@ -265,10 +265,14 @@ progress. They must be specific, actionable and suited to a child aged 6 to 8.
 Stick strictly to the scores given. If the score is 2/4, never say the pupil got
 everything right. Strengths must only mention skills the results actually show.
 Areas to improve must reflect the mistakes or the partial score.
-Be concrete: name the skill behind each wrong answer (for example "subtracting
-across a ten, such as 30 - 18") and, where it helps, the likely mistake. Keep each
-point to one or two short sentences a teacher can act on, and suggest resources
-a teacher can find or make easily (no invented links).
+Be concrete: for each wrong answer, first work out the calculation the question
+needs and compare it with the pupil's answer, then name the skill and the likely
+mistake (for example "50 - 30: answered 10, one ten too many taken away").
+Quote the question number and the calculation. Only call something "crossing a ten"
+or "regrouping" when the ones digit of the first number is smaller than the ones
+digit of the number taken away (24 - 8 crosses a ten, 70 - 20 does not).
+Keep each point to one or two short sentences a teacher can act on, and suggest
+resources a teacher can find or make easily (no invented links or website names).
 Write in English.
 
 {format_instructions}
@@ -276,7 +280,7 @@ Write in English.
         partial_variables={"format_instructions": parser.get_format_instructions()}
     )
 
-    chain = student_recommendation_template | llm | parser
+    chain = student_recommendation_template | llm.bind(temperature=0.2) | parser
     return chain.invoke({
         "nom_eleve": student_name,
         "email": student_email,

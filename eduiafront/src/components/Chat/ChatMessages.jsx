@@ -52,6 +52,7 @@ const ExerciseCard = ({ exercise }) => (
             {question.options.map((option) => (
               <Flex
                 key={option.letter}
+                data-testid={option.correct ? "option-correct" : "option"}
                 align="center"
                 gap={3}
                 px={3}

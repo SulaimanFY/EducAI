@@ -123,7 +123,7 @@ const Home = ({ isAuthenticated, setIsAuthenticated }) => {
 
       <Container maxW="900px" pt="96px" pb="190px">
         {isEmpty ? (
-          <Box textAlign="center" pt={{ base: 6, md: 16 }}>
+          <Box textAlign="center" pt={{ base: 6, md: 10 }}>
             <Badge colorScheme="brand" variant="subtle" borderRadius="full" px={3} py={1} mb={5}>
               AI teaching assistant for primary maths
             </Badge>
